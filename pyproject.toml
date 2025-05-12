@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "summer-modules"
-version = "0.1.0"
+version = "0.1.1"
 description = "summery233 python modules"
 authors = ["233 <ayusummer233@vip.qq.com>"]
 readme = "README.md"
