@@ -5,6 +5,19 @@ description = "summery233 python modules"
 authors = ["233 <ayusummer233@vip.qq.com>"]
 readme = "README.md"
 license = "MIT"
+repository = "https://github.com/233Official/summer_modules"
+packages = [{ include = "summer_modules" }]
+exclude = [
+    "config.toml",
+    "**/logs",
+    "SummerPythonModules.code-workspace",
+    "tmp",
+    ".coverage",
+    ".pytest_cache",
+    "**/__pycache__/**",
+    ".DS_Store",
+    "tests",
+]
 
 [tool.poetry.dependencies]
 python = ">=3.10 <3.14"
