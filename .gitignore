@@ -8,6 +8,7 @@ SummerPythonModules.code-workspace
 tmp
 # pytest相关
 .coverage 
+.pytest_cache
 # python cache
 **/__pycache__/
 # macOS
