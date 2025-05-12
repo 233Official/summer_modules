@@ -1,0 +1,15 @@
+# 配置文件
+config.toml
+# logs
+**/logs/*
+# VSCode工作区定义
+SummerPythonModules.code-workspace
+# 临时文件
+tmp
+# pytest相关
+.coverage 
+# python cache
+**/__pycache__/
+# macOS
+.DS_Store
+
