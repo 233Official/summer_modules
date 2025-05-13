@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "summer-modules"
-version = "0.1.1"
+version = "0.1.2"
 description = "summery233 python modules"
 authors = ["233 <ayusummer233@vip.qq.com>"]
 readme = "README.md"
@@ -20,7 +20,7 @@ exclude = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.10 <3.14"
+python = ">=3.10"
 httpx = "^0.28.1"
 bs4 = "^0.0.2"
 toml = "^0.10.2"
