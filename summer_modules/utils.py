@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import os
 
 
 def write_dict_to_json_file(data: dict, filepath: Path, one_line=True):
@@ -15,3 +16,45 @@ def write_dict_to_json_file(data: dict, filepath: Path, one_line=True):
     else:
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
+
+
+def read_json_file_to_dict(filepath: Path):
+    """读取 json 文件到 dict
+    Args:
+        filepath (Path): 文件路径
+    Returns:
+        dict: 读取的 dict
+    """
+    with open(filepath, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return data
+
+
+def find_chinese_font():
+    """
+    查找系统中可用的中文字体
+
+    返回:
+        字体路径或None
+    """
+    # 常见中文字体路径列表
+    font_paths = [
+        # Windows字体
+        "C:/Windows/Fonts/msyh.ttc",  # 微软雅黑
+        "C:/Windows/Fonts/simsun.ttc",  # 宋体
+        "C:/Windows/Fonts/simhei.ttf",  # 黑体
+        # Linux字体
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        "/usr/share/fonts/truetype/arphic/uming.ttc",
+        # macOS字体
+        "/System/Library/Fonts/PingFang.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
+    ]
+
+    # 尝试一个个加载字体，直到找到可用的
+    for font_path in font_paths:
+        if os.path.exists(font_path):
+            return font_path
+
+    # 如果找不到任何中文字体，返回None
+    return None
