@@ -30,6 +30,29 @@ def read_json_file_to_dict(filepath: Path):
     return data
 
 
+def write_list_to_txt_file(data: list, filepath: Path):
+    """将 list 写入到 txt 文件
+    Args:
+        data (list): 要写入的 list
+        filepath (Path): 文件路径
+    """
+    with open(filepath, "w", encoding="utf-8") as f:
+        for item in data:
+            f.write(f"{item}\n")
+
+
+def read_txt_file_to_list(filepath: Path):
+    """读取 txt 文件到 list
+    Args:
+        filepath (Path): 文件路径
+    Returns:
+        list: 读取的 list
+    """
+    with open(filepath, "r", encoding="utf-8") as f:
+        data = f.readlines()
+    return [line.strip() for line in data]
+
+
 def find_chinese_font():
     """
     查找系统中可用的中文字体
