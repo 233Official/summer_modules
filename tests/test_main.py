@@ -4,18 +4,22 @@ from summer_modules.web_request_utils import getUserAgent
 from summer_modules.utils import write_dict_to_json_file
 from summer_modules.ai.deepseek import translate_text
 from summer_modules.logger import init_and_get_logger
-from summer_modules.vulnerability.cve.info import (
+from summer_modules.security.vulnerability.cve.info import (
     get_cve_description,
     get_cve_info,
     test_get_cve_info_from_cve,
     test_get_cve_description,
 )
-from summer_modules.vulnerability.cve.poc import test_get_poc
-from summer_modules.vulnerability.github_repo.nuclei import test_get_nuclei_cve_dict
-from summer_modules.vulnerability.attck.attck_analyze import TestAnalyzeATTCKInfo
+from summer_modules.security.vulnerability.cve.poc import test_get_poc
+from summer_modules.security.vulnerability.github_repo.nuclei import (
+    test_get_nuclei_cve_dict,
+)
+from summer_modules.security.vulnerability.attck.attck_analyze import (
+    TestAnalyzeATTCKInfo,
+)
 
 # CNNVD
-from summer_modules.vulnerability.cnnvd.info import (
+from summer_modules.security.vulnerability.cnnvd.info import (
     test_search_vul_on_cnnvd_by_cve_id_online,
     test_search_vul_on_cnnvd_by_cve_id_local,
     test_search_vul_on_cnnvd_by_cve_id,
