@@ -26,7 +26,7 @@ from summer_modules.security.vulnerability.cnnvd.info import (
 
 CURRENT_DIR = Path(__file__).resolve().parent
 SUMMER_MODULES_TEST_LOGGER = init_and_get_logger(CURRENT_DIR, "test_logger")
-CONFIG_TOML_FILEPATH = CURRENT_DIR / "../config.toml"
+CONFIG_TOML_FILEPATH = (CURRENT_DIR / "../config.toml").resolve()
 CONFIG_TOML = toml.load(CONFIG_TOML_FILEPATH)
 GITHUB_TOKEN = CONFIG_TOML["github_token"]
 DEEPSEEK_API_KEY = CONFIG_TOML["deepseek_apikey"]
@@ -61,7 +61,7 @@ def test_translate_text():
 
 
 def main():
-    # test_logger()
+    test_logger()
     # test_write_dict_to_json_file()
     # test_translate_text()
 
@@ -74,17 +74,17 @@ def main():
     # test_get_nuclei_cve_dict()
 
     # ATT&CK
-    test_analyze_attck_info = TestAnalyzeATTCKInfo(
-        github_token=GITHUB_TOKEN, deepseek_api_key=DEEPSEEK_API_KEY
-    )
-    test_analyze_attck_info.test_analyze_attck_info()
+    # test_analyze_attck_info = TestAnalyzeATTCKInfo(
+    #     github_token=GITHUB_TOKEN, deepseek_api_key=DEEPSEEK_API_KEY
+    # )
+    # test_analyze_attck_info.test_analyze_attck_info()
 
     # CNNVD
     # test_search_vul_on_cnnvd_by_cve_id_online()
-    test_search_vul_on_cnnvd_by_cve_id_local()
+    # test_search_vul_on_cnnvd_by_cve_id_local()
     # test_search_vul_on_cnnvd_by_cve_id()
     # test_get_vul_info_from_cnnvd_by_cve_id_online()
-    test_get_vul_info_from_cnnvd_by_cve_id_local()
+    # test_get_vul_info_from_cnnvd_by_cve_id_local()
     # test_get_vul_info_from_cnnvd_by_cve_id()
 
 
