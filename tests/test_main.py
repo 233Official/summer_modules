@@ -2,14 +2,10 @@ from pathlib import Path
 import toml
 from summer_modules.web_request_utils import getUserAgent
 from summer_modules.utils import write_dict_to_json_file
-from summer_modules.ai.deepseek import translate_text
+from summer_modules.ai.deepseek import DeepseekClient
 from summer_modules.logger import init_and_get_logger
-from summer_modules.security.vulnerability.cve.info import (
-    get_cve_description,
-    get_cve_info,
-    test_get_cve_info_from_cve,
-    test_get_cve_description,
-)
+from summer_modules.security.vulnerability.cve.info import CVEInfo
+
 from summer_modules.security.vulnerability.cve.poc import test_get_poc
 from summer_modules.security.vulnerability.github_repo.nuclei import (
     test_get_nuclei_cve_dict,
@@ -29,7 +25,7 @@ from summer_modules.security.vulnerability.cnnvd.info import (
 )
 
 CURRENT_DIR = Path(__file__).resolve().parent
-logger = init_and_get_logger(CURRENT_DIR, "test_logger")
+SUMMER_MODULES_TEST_LOGGER = init_and_get_logger(CURRENT_DIR, "test_logger")
 CONFIG_TOML_FILEPATH = CURRENT_DIR / "../config.toml"
 CONFIG_TOML = toml.load(CONFIG_TOML_FILEPATH)
 GITHUB_TOKEN = CONFIG_TOML["github_token"]
@@ -37,11 +33,11 @@ DEEPSEEK_API_KEY = CONFIG_TOML["deepseek_apikey"]
 
 
 def test_logger():
-    logger.debug("debug")
-    logger.info("info")
-    logger.warning("warning")
-    logger.error("error")
-    logger.critical("critical")
+    SUMMER_MODULES_TEST_LOGGER.debug("debug")
+    SUMMER_MODULES_TEST_LOGGER.info("info")
+    SUMMER_MODULES_TEST_LOGGER.warning("warning")
+    SUMMER_MODULES_TEST_LOGGER.error("error")
+    SUMMER_MODULES_TEST_LOGGER.critical("critical")
 
 
 def test_write_dict_to_json_file():
@@ -60,7 +56,8 @@ def test_write_dict_to_json_file():
 
 def test_translate_text():
     english_text = "Hello, how are you? I am learning Python programming."
-    translate_text(english_text)
+    deepseek_client = DeepseekClient(api_key=DEEPSEEK_API_KEY)
+    deepseek_client.translate_text(english_text)
 
 
 def main():
