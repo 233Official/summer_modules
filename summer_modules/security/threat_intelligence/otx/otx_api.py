@@ -4,7 +4,12 @@ import time
 import atexit
 from pathlib import Path
 from summer_modules.logger import init_and_get_logger
-from summer_modules.utils import write_dict_to_json_file, read_json_file_to_dict
+from summer_modules.utils import (
+    write_dict_to_json_file,
+    read_json_file_to_dict,
+    write_list_to_txt_file,
+    read_txt_file_to_list,
+)
 
 CURRENT_DIR = Path(__file__).parent.resolve()
 OTX_API_LOGGER = init_and_get_logger(CURRENT_DIR, "otx_api_logger")
@@ -18,6 +23,9 @@ PULSES_BASE_INFO_FILEPATH = DATA_DIR / "otx_pulses_base_info.json"
 RECENTLY_MODIFIED_PULSES_BASE_INFO_FILEPATH = (
     DATA_DIR / "otx_recently_modified_pulses_base_info.json"
 )
+PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH = (
+    DATA_DIR / "otx_pulses_subscriber_count_desc_sorted_id_list.txt"
+)
 
 
 class OTXApi:
@@ -27,6 +35,8 @@ class OTXApi:
         self.last_save_time = 0
         self.modified = False
         self.init_pulses_base_info()
+        # 订阅数降序排序的Pulses ID列表
+        self.pulses_subscriber_count_desc_sorted_id_list = []
         # 注册退出时保存数据
         atexit.register(self.save_data)
 
@@ -64,8 +74,86 @@ class OTXApi:
             # 暂时没有长期分析的需求，所以这里直接进行覆盖更新
             pulses_base_info[pulse_id] = pulse
 
+        # 对 self。pulses_base_info 按照订阅人数降序排序来更新 self.pulses_subscriber_count_desc_sorted_id_list
+        self.pulses_subscriber_count_desc_sorted_id_list = sorted(
+            pulses_base_info.keys(),
+            key=lambda x: pulses_base_info[x]["subscriber_count"],
+            reverse=True,
+        )
+
         self.modified = True
         self.auto_save_if_needed()
+
+    def update_pulses_subscriber_count_desc_sorted_id_list(
+        self, pulses_search_results: list
+    ):
+        """
+        更新OTX API的Pulses订阅数降序排序的ID列表
+        遍历pulses_search_results中的每个Pulse,将其ID插入到self.pulses_subscriber_count_desc_sorted_id_list中
+        :param pulses_search_results: OTX API的Pulses搜索结果的 results 字段
+        :return: None
+        """
+        # 先将 pulses_search_results 按照订阅人数降序排序
+        sorted_pulses = sorted(
+            pulses_search_results,
+            key=lambda x: x["subscriber_count"],
+            reverse=True,
+        )
+        # 如果 self.pulses_subscriber_count_desc_sorted_id_list 为空,则直接赋值
+        if not self.pulses_subscriber_count_desc_sorted_id_list:
+            self.pulses_subscriber_count_desc_sorted_id_list = [
+                pulse["id"] for pulse in sorted_pulses
+            ]
+            return
+        """
+        现在两个列表都是降序排列好的列表,  sorted_pulses 是按照订阅人数降序排列的pulse基本信息列表
+        self.pulses_subscriber_count_desc_sorted_id_list 是按照订阅人数降序排列的pulse id列表
+        可以采用浮动下标标记插入位置，递增对比插入
+        """
+        left = 0
+        right = len(self.pulses_subscriber_count_desc_sorted_id_list) - 1
+        pulse_index = 0
+        # 先查找第一个不在 pulses_subscriber_count_desc_sorted_id_list 中的 pulse
+        while True:
+            pulse = sorted_pulses[pulse_index]
+            pulse_id = pulse["id"]
+            if pulse_id in self.pulses_subscriber_count_desc_sorted_id_list:
+                pulse_index += 1
+                if pulse_index >= len(pulses_search_results):
+                    # 如果遍历完了列表都没有不在 pulses_subscriber_count_desc_sorted_id_list 中的 pulse,则说明没必要插入了
+                    OTX_API_LOGGER.info(
+                        f"没有新的Pulses需要插入到订阅数降序排序的ID列表中, 当前列表长度为{len(self.pulses_subscriber_count_desc_sorted_id_list)}"
+                    )
+                    return
+                continue
+            else:
+                break
+        pulse_subscriber_count = sorted_pulses[pulse_index]["subscriber_count"]
+        # sorted_pulses 是按照订阅人数降序排列好的列表，所以找到第一个插入位置后，后面的就可以方便的比较插入了
+        # 二分查找第一个插入位置下标
+        while left <= right:
+            mid = (left + right) // 2
+            mid_pulse_subscriber_count = self.pulses_base_info[
+                self.pulses_subscriber_count_desc_sorted_id_list[mid]
+            ]["subscriber_count"]
+            if mid_pulse_subscriber_count < pulse_subscriber_count:
+                right = mid - 1
+            elif mid_pulse_subscriber_count == pulse_subscriber_count:
+                # 如果相等,则插入到 mid 的后面
+                left = mid + 1
+                break
+            else:
+                left = mid + 1
+        # left 就是第一个插入位置下标
+        self.pulses_subscriber_count_desc_sorted_id_list.insert(left, pulse_id)
+        # 浮动 left 和 pulse_index 插入后续的 pulse
+        for i in range(pulse_index + 1, len(sorted_pulses)):
+            pulse = sorted_pulses[i]
+            pulse_id = pulse["id"]
+            pulse_subscriber_count = pulse["subscriber_count"]
+            # 从 left 开始向后遍历 self.pulses_subscriber_count_desc_sorted_id_list，第一个小于 pulse_subscriber_count 的位置就是插入位置
+            while left < len(self.pulses_subscriber_count_desc_sorted_id_list):
+                
 
     def auto_save_if_needed(self):
         """如果数据被修改且距离上次保存超过5分钟则保存"""
@@ -162,8 +250,18 @@ class OTXApi:
             RECENTLY_MODIFIED_PULSES_BASE_INFO_FILEPATH,
             one_line=True,
         )
+        write_dict_to_json_file(
+            self.pulses_subscriber_count_desc_sorted_id_list,
+            PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH,
+            one_line=True,
+        )
+        write_list_to_txt_file(
+            self.pulses_subscriber_count_desc_sorted_id_list,
+            PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH,
+        )
+
         OTX_API_LOGGER.info(
-            f"数据已保存到 {PULSES_BASE_INFO_FILEPATH} 和 {RECENTLY_MODIFIED_PULSES_BASE_INFO_FILEPATH}"
+            f"数据已保存到\n{PULSES_BASE_INFO_FILEPATH}\n {RECENTLY_MODIFIED_PULSES_BASE_INFO_FILEPATH}\n {PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH}"
         )
         self.last_save_time = time.time()
         self.modified = False
@@ -201,20 +299,21 @@ class OTXApi:
             if i < count - 1:
                 time.sleep(interval)
 
-        # 将去重后的结果按照时间戳递减排序添加到列表中
-        otx_recently_modified_5000_pulses_list = sorted(
+        # 将去重后的结果按照订阅人数递减排序
+        otx_recently_modified_5000_pulses_list_subscriber_count_desc_sorted = sorted(
             otx_recently_modified_5000_pulses_dict.values(),
-            key=lambda x: x["modified"],
+            key=lambda x: x["subscriber_count"],
             reverse=True,
         )
+
         OTX_API_LOGGER.info(
-            f"查询到{len(otx_recently_modified_5000_pulses_list)}个Pulses"
+            f"查询到{len(otx_recently_modified_5000_pulses_list_subscriber_count_desc_sorted)}个Pulses"
         )
 
         # 更新最近修改的5000个Pulses的基本信息
         self.update_pulses_base_info(
             self.recently_modified_pulses_base_info,
-            otx_recently_modified_5000_pulses_list,
+            otx_recently_modified_5000_pulses_list_subscriber_count_desc_sorted,
         )
 
-        return otx_recently_modified_5000_pulses_list
+        return otx_recently_modified_5000_pulses_list_subscriber_count_desc_sorted
