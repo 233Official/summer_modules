@@ -320,3 +320,37 @@ class OTXApi:
         )
 
         return otx_recently_modified_5000_pulses_list_subscriber_count_desc_sorted
+
+    def get_pulses_info(self, pulse_id: str) -> dict:
+        """
+        获取指定Pulse的详细信息
+        :param pulse_id: Pulse的ID
+        :return: Pulse的详细信息
+        """
+        if not isinstance(pulse_id, str):
+            raise ValueError("pulse_id必须是字符串")
+        url = f"{OTX_BASE_URL}/api/v1/pulses/{pulse_id}"
+        headers = {"X-OTX-API-KEY": self.otx_api_key}
+        with httpx.Client() as client:
+            response = client.get(url, headers=headers)
+            response.raise_for_status()
+            response_json = response.json()
+            return response_json
+
+    def get_pulses_indicators(self, pulse_id: str) -> dict:
+        """
+        获取指定Pulse的Indicators
+        :param pulse_id: Pulse的ID
+        :return: Pulse的Indicators
+        """
+        if not isinstance(pulse_id, str):
+            raise ValueError("pulse_id必须是字符串")
+        # 不要用官方文档的 API 接口，查不出来 IPV4 Type 的 IOC
+        url = f"{OTX_BASE_URL}/api/v1/pulses/{pulse_id}/indicators"
+        # url = f"{OTX_BASE_URL}/otxapi/pulses/{pulse_id}/indicators/?sort=-created&limit=10&page=1"
+        headers = {"X-OTX-API-KEY": self.otx_api_key}
+        with httpx.Client() as client:
+            response = client.get(url, headers=headers)
+            response.raise_for_status()
+            response_json = response.json()
+            return response_json
