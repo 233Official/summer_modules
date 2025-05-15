@@ -164,6 +164,35 @@ class OTXApi:
         if self.modified and (current_time - self.last_save_time > 300):
             self.save_data()
 
+    def save_data(self):
+        """保存数据到文件"""
+        if not self.modified:
+            return
+
+        write_dict_to_json_file(
+            self.pulses_base_info, PULSES_BASE_INFO_FILEPATH, one_line=True
+        )
+        write_dict_to_json_file(
+            self.recently_modified_pulses_base_info,
+            RECENTLY_MODIFIED_PULSES_BASE_INFO_FILEPATH,
+            one_line=True,
+        )
+        write_dict_to_json_file(
+            self.pulses_subscriber_count_desc_sorted_id_list,
+            PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH,
+            one_line=True,
+        )
+        write_list_to_txt_file(
+            self.pulses_subscriber_count_desc_sorted_id_list,
+            PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH,
+        )
+
+        OTX_API_LOGGER.info(
+            f"数据已保存到\n{PULSES_BASE_INFO_FILEPATH}\n {RECENTLY_MODIFIED_PULSES_BASE_INFO_FILEPATH}\n {PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH}"
+        )
+        self.last_save_time = time.time()
+        self.modified = False
+
     def otx_search_pulses(
         self,
         limit: int = 10,
@@ -239,35 +268,6 @@ class OTXApi:
             results = response_json.get("results", [])
             self.update_pulses_base_info(self.pulses_base_info, results)
             return response_json
-
-    def save_data(self):
-        """保存数据到文件"""
-        if not self.modified:
-            return
-
-        write_dict_to_json_file(
-            self.pulses_base_info, PULSES_BASE_INFO_FILEPATH, one_line=True
-        )
-        write_dict_to_json_file(
-            self.recently_modified_pulses_base_info,
-            RECENTLY_MODIFIED_PULSES_BASE_INFO_FILEPATH,
-            one_line=True,
-        )
-        write_dict_to_json_file(
-            self.pulses_subscriber_count_desc_sorted_id_list,
-            PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH,
-            one_line=True,
-        )
-        write_list_to_txt_file(
-            self.pulses_subscriber_count_desc_sorted_id_list,
-            PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH,
-        )
-
-        OTX_API_LOGGER.info(
-            f"数据已保存到\n{PULSES_BASE_INFO_FILEPATH}\n {RECENTLY_MODIFIED_PULSES_BASE_INFO_FILEPATH}\n {PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH}"
-        )
-        self.last_save_time = time.time()
-        self.modified = False
 
     def otx_search_recently_modified_5000_pulses(self) -> list:
         """查询最近修改的5000个Pulses
