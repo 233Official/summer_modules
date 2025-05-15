@@ -4,6 +4,7 @@ import time
 from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
+from typing import Optional
 
 
 class TimedRotatingFileHandler(RotatingFileHandler):
@@ -102,12 +103,14 @@ class CustomFormatter(logging.Formatter):
 class ColoredInfoLogger(logging.Logger):
     """自定义Logger, 用于添加为 INFO 添加颜色"""
 
-    def info(self, msg, info_color="default", *args, **kwargs):
+    def info(self, msg, info_color: Optional[str] = "default", *args, **kwargs):
         # 添加info_color属性
         super().info(msg, extra={"info_color": info_color}, *args, **kwargs)
 
 
-def init_and_get_logger(current_dir: Path, logger_name="summer_logger") -> logging.Logger:
+def init_and_get_logger(
+    current_dir: Path, logger_name="summer_logger"
+) -> logging.Logger:
     # 设置自定义的Logger
     logging.setLoggerClass(ColoredInfoLogger)
     logger = logging.getLogger(logger_name)
