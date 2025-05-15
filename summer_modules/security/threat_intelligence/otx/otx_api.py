@@ -243,31 +243,53 @@ class OTXApi:
         with httpx.Client() as client:
             # 最多重试3次
             headers = {"X-OTX-API-KEY": self.otx_api_key}
-            response = client.get(
-                SEARCH_PULSE_URL, headers=headers, params=params, timeout=timeout
-            )
-            for _ in range(2):
-                if response.status_code == 200:
-                    break
-                else:
-                    OTX_API_LOGGER.error(
-                        f"请求失败, 状态码: {response.status_code}, 重试中..."
-                    )
+            response = None  # 在try块外初始化response
+            retry_count = 0
+            max_retries = 3
+
+            while retry_count < max_retries:
+                try:
                     response = client.get(
                         SEARCH_PULSE_URL,
-                        headers=self.headers,
+                        headers=headers,
                         params=params,
                         timeout=timeout,
                     )
-            else:
-                # 如果重试3次仍然失败,则抛出异常
-                raise Exception(f"尝试请求3次依旧失败, 状态码: {response.status_code}")
 
-            response.raise_for_status()
-            response_json = response.json()
-            results = response_json.get("results", [])
-            self.update_pulses_base_info(self.pulses_base_info, results)
-            return response_json
+                    if response.status_code == 200:
+                        OTX_API_LOGGER.info(
+                            f"请求成功, URL: {SEARCH_PULSE_URL}, 参数: {params}",
+                            info_color="magenta",
+                        )
+                        break
+                    else:
+                        OTX_API_LOGGER.error(
+                            f"请求失败, 状态码: {response.status_code}, 重试中... ({retry_count + 1}/{max_retries})"
+                        )
+                except httpx.TimeoutException:
+                    OTX_API_LOGGER.warning(
+                        f"请求超时, URL: {SEARCH_PULSE_URL}, 参数: {params}, 重试中... ({retry_count + 1}/{max_retries})"
+                    )
+                except Exception as e:
+                    OTX_API_LOGGER.error(
+                        f"请求失败, 错误信息: {e}, 重试中... ({retry_count + 1}/{max_retries})"
+                    )
+
+                retry_count += 1
+                # 可以在重试前添加短暂延迟
+                if retry_count < max_retries:
+                    time.sleep(1)
+
+        # 检查是否成功获取响应
+        if response is None or response.status_code != 200:
+            OTX_API_LOGGER.error(f"尝试请求{max_retries}次依旧失败")
+            return {"results": []}  # 返回空结果
+
+        # 成功获取响应
+        response_json = response.json()
+        results = response_json.get("results", [])
+        self.update_pulses_base_info(self.pulses_base_info, results)
+        return response_json
 
     def otx_search_recently_modified_5000_pulses(self) -> list:
         """查询最近修改的5000个Pulses
