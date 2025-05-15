@@ -10,5 +10,5 @@ class CustomLogger(logging.Logger):
     ) -> None: ...
 
 def init_and_get_logger(
-    log_dir: Union[str, Path], logger_name: str, **kwargs: Any
+    current_dir: Path, logger_name: str, **kwargs: Any
 ) -> CustomLogger: ...
