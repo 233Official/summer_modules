@@ -140,13 +140,29 @@ class Markdown:
 
         self.logger.info(f"表格已添加，包含 {len(headers)} 列和 {len(rows)} 行")
 
-    def add_local_image(self, image_path: Path, alt_text: str = "Image") -> None:
+    def add_local_image(
+        self, image_path: Union[Path, str], alt_text: str = "Image"
+    ) -> None:
         """添加本地图片到 Markdown 文件
         :param image_path: 图片路径
         :param alt_text: 图片替代文本
         :return: None
         """
-        self.logger.info(f"添加本地图片: {image_path}, 图片替代文本: {alt_text}")
+        # 如果 image_path是Path对象, 则说明添加的是一个本地绝对路径的图片
+        if isinstance(image_path, Path):
+            self.logger.info(
+                f"添加本地绝对路径图片: {image_path}, 图片替代文本: {alt_text}"
+            )
+        # 如果 image_path是str对象, 则说明添加的是一个本地相对路径的图片
+        elif isinstance(image_path, str):
+            self.logger.info(
+                f"添加本地相对路径图片: {image_path}, 图片替代文本: {alt_text}"
+            )
+        else:
+            self.logger.error(
+                f"图片路径类型错误: {image_path}, 图片替代文本: {alt_text}"
+            )
+            return
         with open(self.markdown_file_path, "a", encoding="utf-8") as f:
             f.write(f"![{alt_text}]({image_path})\n")
             f.write("\n")
