@@ -12,6 +12,8 @@ CURRENT_DIR = Path(__file__).resolve().parent
 CONFIG_TOML_FILEPATH = (CURRENT_DIR / "../../../../config.toml").resolve()
 CONFIG_TOML = toml.load(CONFIG_TOML_FILEPATH)
 OTX_API_KEY = CONFIG_TOML["otx_api_key"]
+TMP_DIR = CURRENT_DIR / "tmp"
+TMP_DIR.mkdir(parents=True, exist_ok=True)
 
 otx_api = OTXApi(otx_api_key=OTX_API_KEY)
 pulses_id = "67f82020a26d2eb2bb6d4f1e"
@@ -20,14 +22,14 @@ pulses_info = otx_api.get_pulses_info(pulses_id)
 current_timestamp = int(time.time())
 write_dict_to_json_file(
     data=pulses_info,
-    filepath=CURRENT_DIR / f"tmp/{current_timestamp}_{pulses_id}_pulses_info.json",
+    filepath=TMP_DIR / f"{current_timestamp}_{pulses_id}_pulses_info.json",
     one_line=False,
 )
 
 pulses_indicators = otx_api.get_pulses_indicators(pulses_id)
 write_dict_to_json_file(
     data=pulses_indicators,
-    filepath=CURRENT_DIR / f"tmp/{current_timestamp}_{pulses_id}_pulses_indicators.json",
+    filepath=TMP_DIR / f"{current_timestamp}_{pulses_id}_pulses_indicators.json",
     one_line=False,
 )
 

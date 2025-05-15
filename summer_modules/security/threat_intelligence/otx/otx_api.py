@@ -10,6 +10,7 @@ from summer_modules.utils import (
     write_list_to_txt_file,
     read_txt_file_to_list,
 )
+from summer_modules.web_request_utils import RetryableHTTPClient
 
 CURRENT_DIR = Path(__file__).parent.resolve()
 OTX_API_LOGGER = init_and_get_logger(CURRENT_DIR, "otx_api_logger")
@@ -35,6 +36,9 @@ class OTXApi:
         self.last_save_time = 0
         self.modified = False
         self.init_pulses_base_info()
+        self.http_client = RetryableHTTPClient(
+            logger=OTX_API_LOGGER, max_retries=3, retry_delay=1
+        )
         # 注册退出时保存数据
         atexit.register(self.save_data)
 
@@ -239,54 +243,13 @@ class OTXApi:
                 "sort": sort,
                 "q": q,
             }
-
-        with httpx.Client() as client:
-            # 最多重试3次
-            headers = {"X-OTX-API-KEY": self.otx_api_key}
-            response = None  # 在try块外初始化response
-            retry_count = 0
-            max_retries = 3
-
-            while retry_count < max_retries:
-                try:
-                    response = client.get(
-                        SEARCH_PULSE_URL,
-                        headers=headers,
-                        params=params,
-                        timeout=timeout,
-                    )
-
-                    if response.status_code == 200:
-                        OTX_API_LOGGER.info(
-                            f"请求成功, URL: {SEARCH_PULSE_URL}, 参数: {params}",
-                            info_color="magenta",
-                        )
-                        break
-                    else:
-                        OTX_API_LOGGER.error(
-                            f"请求失败, 状态码: {response.status_code}, 重试中... ({retry_count + 1}/{max_retries})"
-                        )
-                except httpx.TimeoutException:
-                    OTX_API_LOGGER.warning(
-                        f"请求超时, URL: {SEARCH_PULSE_URL}, 参数: {params}, 重试中... ({retry_count + 1}/{max_retries})"
-                    )
-                except Exception as e:
-                    OTX_API_LOGGER.error(
-                        f"请求失败, 错误信息: {e}, 重试中... ({retry_count + 1}/{max_retries})"
-                    )
-
-                retry_count += 1
-                # 可以在重试前添加短暂延迟
-                if retry_count < max_retries:
-                    time.sleep(1)
-
-        # 检查是否成功获取响应
-        if response is None or response.status_code != 200:
-            OTX_API_LOGGER.error(f"尝试请求{max_retries}次依旧失败")
-            return {"results": []}  # 返回空结果
-
-        # 成功获取响应
-        response_json = response.json()
+        headers = {"X-OTX-API-KEY": self.otx_api_key}
+        response_json = self.http_client.get(
+            url=SEARCH_PULSE_URL,
+            headers=headers,
+            params=params,
+            timeout=timeout,
+        )
         results = response_json.get("results", [])
         self.update_pulses_base_info(self.pulses_base_info, results)
         return response_json
@@ -343,26 +306,29 @@ class OTXApi:
 
         return otx_recently_modified_5000_pulses_list_subscriber_count_desc_sorted
 
-    def get_pulses_info(self, pulse_id: str) -> dict:
+    def get_pulses_info(self, pulse_id: str, timeout: int = 30) -> dict:
         """
         获取指定Pulse的详细信息
         :param pulse_id: Pulse的ID
+        :param timeout: 请求超时时间,单位为秒(默认30秒)
         :return: Pulse的详细信息
         """
         if not isinstance(pulse_id, str):
             raise ValueError("pulse_id必须是字符串")
         url = f"{OTX_BASE_URL}/api/v1/pulses/{pulse_id}"
         headers = {"X-OTX-API-KEY": self.otx_api_key}
-        with httpx.Client() as client:
-            response = client.get(url, headers=headers)
-            response.raise_for_status()
-            response_json = response.json()
-            return response_json
+        response_json = self.http_client.get(
+            url=url,
+            headers=headers,
+            timeout=timeout,
+        )
+        return response_json
 
-    def get_pulses_indicators(self, pulse_id: str) -> dict:
+    def get_pulses_indicators(self, pulse_id: str, timeout: int = 30) -> dict:
         """
         获取指定Pulse的Indicators
         :param pulse_id: Pulse的ID
+        :param timeout: 请求超时时间,单位为秒(默认30秒)
         :return: Pulse的Indicators
         """
         if not isinstance(pulse_id, str):
@@ -371,8 +337,9 @@ class OTXApi:
         url = f"{OTX_BASE_URL}/api/v1/pulses/{pulse_id}/indicators"
         # url = f"{OTX_BASE_URL}/otxapi/pulses/{pulse_id}/indicators/?sort=-created&limit=10&page=1"
         headers = {"X-OTX-API-KEY": self.otx_api_key}
-        with httpx.Client() as client:
-            response = client.get(url, headers=headers)
-            response.raise_for_status()
-            response_json = response.json()
-            return response_json
+        response_json = self.http_client.get(
+            url=url,
+            headers=headers,
+            timeout=timeout,
+        )
+        return response_json
