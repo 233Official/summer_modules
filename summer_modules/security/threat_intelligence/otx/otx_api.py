@@ -35,8 +35,6 @@ class OTXApi:
         self.last_save_time = 0
         self.modified = False
         self.init_pulses_base_info()
-        # 订阅数降序排序的Pulses ID列表
-        self.pulses_subscriber_count_desc_sorted_id_list = []
         # 注册退出时保存数据
         atexit.register(self.save_data)
 
@@ -57,6 +55,27 @@ class OTXApi:
         else:
             self.recently_modified_pulses_base_info = read_json_file_to_dict(
                 RECENTLY_MODIFIED_PULSES_BASE_INFO_FILEPATH
+            )
+
+        # 读取订阅数降序排序的Pulses ID列表
+        if not PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH.exists():
+            # 如果 pulses_base_info 不为空则直接对其进行排序
+            if self.pulses_base_info:
+                self.pulses_subscriber_count_desc_sorted_id_list = sorted(
+                    self.pulses_base_info.keys(),
+                    key=lambda x: self.pulses_base_info[x]["subscriber_count"],
+                    reverse=True,
+                )
+                write_list_to_txt_file(
+                    self.pulses_subscriber_count_desc_sorted_id_list,
+                    PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH,
+                )
+            else:
+                # 如果 pulses_base_info 为空则初始化为空列表
+                self.pulses_subscriber_count_desc_sorted_id_list = []
+        else:
+            self.pulses_subscriber_count_desc_sorted_id_list = read_txt_file_to_list(
+                PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH
             )
 
     def update_pulses_base_info(
@@ -81,6 +100,7 @@ class OTXApi:
             reverse=True,
         )
 
+        self.update_pulses_subscriber_count_desc_sorted_id_list(pulses_search_results)
         self.modified = True
         self.auto_save_if_needed()
 
@@ -99,6 +119,7 @@ class OTXApi:
             key=lambda x: x["subscriber_count"],
             reverse=True,
         )
+        source_sorted_pulses = self.pulses_subscriber_count_desc_sorted_id_list
         # 如果 self.pulses_subscriber_count_desc_sorted_id_list 为空,则直接赋值
         if not self.pulses_subscriber_count_desc_sorted_id_list:
             self.pulses_subscriber_count_desc_sorted_id_list = [
@@ -108,52 +129,34 @@ class OTXApi:
         """
         现在两个列表都是降序排列好的列表,  sorted_pulses 是按照订阅人数降序排列的pulse基本信息列表
         self.pulses_subscriber_count_desc_sorted_id_list 是按照订阅人数降序排列的pulse id列表
-        可以采用浮动下标标记插入位置，递增对比插入
+        直接归并两个列表即可
         """
-        left = 0
-        right = len(self.pulses_subscriber_count_desc_sorted_id_list) - 1
-        pulse_index = 0
-        # 先查找第一个不在 pulses_subscriber_count_desc_sorted_id_list 中的 pulse
-        while True:
-            pulse = sorted_pulses[pulse_index]
-            pulse_id = pulse["id"]
-            if pulse_id in self.pulses_subscriber_count_desc_sorted_id_list:
-                pulse_index += 1
-                if pulse_index >= len(pulses_search_results):
-                    # 如果遍历完了列表都没有不在 pulses_subscriber_count_desc_sorted_id_list 中的 pulse,则说明没必要插入了
-                    OTX_API_LOGGER.info(
-                        f"没有新的Pulses需要插入到订阅数降序排序的ID列表中, 当前列表长度为{len(self.pulses_subscriber_count_desc_sorted_id_list)}"
-                    )
-                    return
-                continue
+        merged_list = []
+        i = j = 0
+        while i < len(source_sorted_pulses) and j < len(sorted_pulses):
+            if (
+                self.pulses_base_info[source_sorted_pulses[i]]["subscriber_count"]
+                >= sorted_pulses[j]["subscriber_count"]
+            ):
+                if source_sorted_pulses[i] not in merged_list:
+                    merged_list.append(source_sorted_pulses[i])
+                i += 1
             else:
-                break
-        pulse_subscriber_count = sorted_pulses[pulse_index]["subscriber_count"]
-        # sorted_pulses 是按照订阅人数降序排列好的列表，所以找到第一个插入位置后，后面的就可以方便的比较插入了
-        # 二分查找第一个插入位置下标
-        while left <= right:
-            mid = (left + right) // 2
-            mid_pulse_subscriber_count = self.pulses_base_info[
-                self.pulses_subscriber_count_desc_sorted_id_list[mid]
-            ]["subscriber_count"]
-            if mid_pulse_subscriber_count < pulse_subscriber_count:
-                right = mid - 1
-            elif mid_pulse_subscriber_count == pulse_subscriber_count:
-                # 如果相等,则插入到 mid 的后面
-                left = mid + 1
-                break
-            else:
-                left = mid + 1
-        # left 就是第一个插入位置下标
-        self.pulses_subscriber_count_desc_sorted_id_list.insert(left, pulse_id)
-        # 浮动 left 和 pulse_index 插入后续的 pulse
-        for i in range(pulse_index + 1, len(sorted_pulses)):
-            pulse = sorted_pulses[i]
-            pulse_id = pulse["id"]
-            pulse_subscriber_count = pulse["subscriber_count"]
-            # 从 left 开始向后遍历 self.pulses_subscriber_count_desc_sorted_id_list，第一个小于 pulse_subscriber_count 的位置就是插入位置
-            while left < len(self.pulses_subscriber_count_desc_sorted_id_list):
-                
+                if sorted_pulses[j]["id"] not in merged_list:
+                    merged_list.append(sorted_pulses[j]["id"])
+                j += 1
+        # 将剩余的元素添加到 merged_list 中
+        while i < len(source_sorted_pulses):
+            if source_sorted_pulses[i] not in merged_list:
+                merged_list.append(source_sorted_pulses[i])
+            i += 1
+        while j < len(sorted_pulses):
+            if sorted_pulses[j]["id"] not in merged_list:
+                merged_list.append(sorted_pulses[j]["id"])
+            j += 1
+
+        # 更新 self.pulses_subscriber_count_desc_sorted_id_list
+        self.pulses_subscriber_count_desc_sorted_id_list = merged_list
 
     def auto_save_if_needed(self):
         """如果数据被修改且距离上次保存超过5分钟则保存"""
