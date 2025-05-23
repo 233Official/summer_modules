@@ -4,6 +4,7 @@ import random
 import time
 import httpx
 from typing import Dict, Any, Optional, Callable, TypeVar, Union, List
+import urllib.parse
 
 CURRENT_DIR = Path(__file__).resolve().parent
 USER_AGENT_FILEPATH = CURRENT_DIR / "browsers.json"
@@ -142,3 +143,43 @@ class RetryableHTTPClient:
     def post(self, url, **kwargs) -> Dict[str, Any]:
         """POST请求快捷方法"""
         return self.request("POST", url, **kwargs)
+
+
+def get_standard_domain_from_origin_domain(origin_domain):
+    """域名标准化函数
+    从域名/URL中提取标准化的域名
+    提取方案为：
+    1. 如果没有协议以及URL PATH 的话直接操作域名字符串去除 www 顶级域名
+    2. 如果有协议, 使用urlparse解析出域名后移除端口号
+    3. 去除域名前面的www.前缀和空白, 并转换为小写形式
+
+    参数:
+        origin_domain (str): 原始域名或URL, 可以是完整URL或仅域名部分
+
+    返回:
+        str: 标准化后的域名, 不包含www前缀、协议、端口号和路径
+
+    示例:
+        >>> get_standard_domain_from_origin_domain("www.example.com")
+        "example.com"
+
+        >>> get_standard_domain_from_origin_domain("https://www.example.com:8080/path")
+        "example.com"
+    """
+    # 快速路径：处理简单情况
+    if not origin_domain or ("/" not in origin_domain and ":" not in origin_domain):
+        return origin_domain.strip(" .").removeprefix("www.").lower()
+
+    # 如果包含协议, 使用urlparse
+    if "://" in origin_domain:
+        try:
+            parsed_url = urllib.parse.urlparse(origin_domain)
+            domain = parsed_url.netloc or parsed_url.path.split("/")[0]
+            domain = domain.split(":")[0]  # 移除端口号
+        except:
+            domain = origin_domain.split("/")[-1]
+    else:
+        # 没有协议但可能有路径
+        domain = origin_domain.split("/")[0].split(":")[0]
+
+    return domain.strip(" .").removeprefix("www.").lower()
