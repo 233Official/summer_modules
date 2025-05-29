@@ -1,11 +1,1 @@
-{
-    "python.analysis.extraPaths": [
-        "/Volumes/SummerDocs/Repo/Self/DailyNotesCode/Python/summer_modules",
-        "E:/Repo/Self/DailyNotesCode/Python/summer_modules"
-    ],
-    "python.analysis.exclude": [
-        ".venv",
-        "summer_modules/security/vulnerability/attck",  
-        "summer_modules/security/vulnerability/cve"
-    ]
-}
+{}
