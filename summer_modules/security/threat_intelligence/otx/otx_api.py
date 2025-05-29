@@ -181,14 +181,9 @@ class OTXApi:
             RECENTLY_MODIFIED_PULSES_BASE_INFO_FILEPATH,
             one_line=True,
         )
-        write_dict_to_json_file(
-            self.pulses_subscriber_count_desc_sorted_id_list,
-            PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH,
-            one_line=True,
-        )
         write_list_to_txt_file(
-            self.pulses_subscriber_count_desc_sorted_id_list,
-            PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH,
+            data=self.pulses_subscriber_count_desc_sorted_id_list,
+            filepath=PULSES_SUBSCRIBER_COUNT_DESC_SORTED_ID_LIST_FILEPATH,
         )
 
         OTX_API_LOGGER.info(
