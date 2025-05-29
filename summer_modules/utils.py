@@ -1,6 +1,8 @@
 from pathlib import Path
 import json
 import os
+import traceback
+from . import summer_modules_logger
 
 
 def write_dict_to_json_file(data: dict, filepath: Path, one_line=True):
@@ -51,6 +53,34 @@ def read_txt_file_to_list(filepath: Path):
     with open(filepath, "r", encoding="utf-8") as f:
         data = f.readlines()
     return [line.strip() for line in data]
+
+
+# 获取所有JSON文件列表
+def get_all_json_files(directory: Path) -> list:
+    """
+    获取目录下所有JSON文件的路径
+    :param directory: 目录路径
+    :return: JSON文件路径列表
+    """
+    if not directory.exists():
+        summer_modules_logger.error(f"目录不存在: {directory}")
+        return []
+
+    if not directory.is_dir():
+        summer_modules_logger.error(f"路径不是目录: {directory}")
+        return []
+
+    try:
+        # 使用list comprehension直接获取所有JSON文件
+        json_files = list(directory.glob("**/*.json"))
+        summer_modules_logger.info(
+            f"在 {directory} 中找到 {len(json_files)} 个JSON文件"
+        )
+        return json_files
+    except Exception as e:
+        stre_trace = traceback.format_exc()
+        summer_modules_logger.error(f"获取JSON文件时出错: {e}\n{stre_trace}")
+        return []
 
 
 def find_chinese_font():
