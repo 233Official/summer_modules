@@ -18,21 +18,26 @@
 │   ├── ai
 │   │   ├── __init__.py    
 │   │   ├── deepseek.py    # deeepseek英译中
+│   ├── charts             # 图表相关模块
 │   ├── excel              # excel相关模块
 │   │   ├── __init__.py
-│   ├── logger.py          # 自定义彩色日志模块
-│   ├── utils.py           # 通用工具模块
-│   ├── vulnerability      # 漏洞信息相关模块
+│   ├── logger             # 自定义彩色日志模块
+│   ├── markdown           # markdown 编辑模块
+│   ├── security           # 安全相关模块
+│   │   ├── vulnerability      # 漏洞信息相关模块
+│   │   │   ├── __init__.py
+│   │   │   ├── attck          # attck官网漏洞信息
+│   │   │   ├── cnnvd          # CNNVD官网漏洞信息
+│   │   │   ├── cnvd    
+│   │   │   ├── cve            # CVE官网漏洞信息查询
+│   │   │   ├── github_repo    # nuclei仓库模板信息查询
+│   │   │   ├── nvd
+│   │   ├── threat_intelligence  # 威胁情报相关模块
+│   │   │   ├── otx           # OTX相关模块
+│   ├── web_request_utils  # 随机 UA 生成器
 │   │   ├── __init__.py
-│   │   ├── attck          # attck官网漏洞信息
-│   │   ├── cnnvd          # CNNVD官网漏洞信息
-│   │   ├── cnvd    
-│   │   ├── cve            # CVE官网漏洞信息查询
-│   │   ├── github_repo    # nuclei仓库模板信息查询
-│   │   └── nvd
-│   └── web_request_utils  # 随机 UA 生成器
-│       ├── __init__.py
-│       └── browsers.json
+│   │   └── browsers.json
+│   └──  utils.py           # 通用工具模块
 ├── tests
 │   ├── __init__.py
 │   ├── test.json
@@ -48,6 +53,22 @@
 所有项目的显著变更都将记录在此文件中。
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)。
+
+---
+
+### [0.1.3] - 2025-06-10
+
+- 新增功能
+  - 通用模块(utils.py)更新
+    - `read_json_file_to_dict`: 新增从 JSON 文件读取字典的函数
+    - `write_list_to_txt_file`: 新增将列表写入文本文件的函数
+    - `read_txt_file_to_list`: 新增从文本文件读取列表的函数
+    - `get_all_json_files`: 新增获取指定目录下所有 JSON 文件的函数
+  - 新增 OTX API(security/threat_intelligence/otx)
+  - 新增 markdown 操作模块(markdown)
+  - 新增图表模块(charts)
+  - Web 通用模块更新
+    - `get_standard_domain_from_origin_domain`: 新增获取标准域名的函数
 
 ---
 
