@@ -1,0 +1,7 @@
+#### 获取根目录下的文件和目录列表
+GET /api/v4/projects/61330557/repository/tree HTTP/1.1
+Host: gitlab.com
+
+#### 获取子目录下的文件和目录列表
+GET /api/v4/projects/61330557/repository/tree?path=docs HTTP/1.1
+Host: gitlab.com

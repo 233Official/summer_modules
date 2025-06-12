@@ -1,3 +1,12 @@
 deepseek_apikey = "sk-xxx"
 github_token = "github_pat_xxx"
 otx_api_key = "xxxxxxxx"
+
+[image_host]
+[image_host.gitlab]
+gitlab_token = "xxx"
+project_id = "xxxx"
+branch = "main"
+repo_path = "xxxx"
+gitlab_base_url = "https://gitlab.com"
+gitlab_repo_image_base_path = "xxx/xxx"
