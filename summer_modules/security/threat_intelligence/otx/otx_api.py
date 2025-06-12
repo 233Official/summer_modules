@@ -47,7 +47,7 @@ class OTXApi:
         初始化OTX API的Pulses基本信息
         :return: None
         """
-        # 读取最近修改的5000个Pulses的基本信息
+        # 读取 Pulses 的基本信息
         if not PULSES_BASE_INFO_FILEPATH.exists():
             self.pulses_base_info = {}
         else:
@@ -211,7 +211,7 @@ class OTXApi:
         """
         if sort not in ["-modified", "modified", "-created", "created"]:
             raise ValueError(
-                '排序字段无效, 可选项有 "-modified", "modified", "-created", "created"'
+                '排序字段无效, 可选项有 "-modified(最近修改)", "modified(最久修改)", "-created(最近创建)", "created(最久创建)"'
             )
         if not isinstance(limit, int) or limit <= 0:
             raise ValueError("limit必须是正整数")
