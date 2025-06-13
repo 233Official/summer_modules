@@ -1,5 +1,6 @@
 """
 使用 gitlab 仓库作为图床
+API DOC: https://docs.gitlab.com/18.0/api/repository_files/#delete-existing-file-in-repository
 """
 
 from pathlib import Path
