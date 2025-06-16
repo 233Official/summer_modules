@@ -20,7 +20,8 @@ exclude = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.11"
+# 受 prefect 限制, python 必须 < 3.14
+python = ">=3.11 <3.14"
 httpx = "^0.28.1"
 bs4 = "^0.0.2"
 toml = "^0.10.2"
@@ -29,6 +30,7 @@ openpyxl = "^3.1.5"
 cryptography = "^44.0.2"
 matplotlib = "^3.10.3"
 tzdata = "^2025.2"
+prefect = "^3.4.6"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0.0"
