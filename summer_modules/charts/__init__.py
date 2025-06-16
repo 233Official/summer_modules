@@ -57,3 +57,30 @@ def plot_bar_chart(
     # plt.show()
     plt.savefig(save_path)
     CHARTS_LOGGER.info(f"柱形图已保存到: {save_path}")
+
+
+def plot_pie_chart(data: Union[list, dict], title: str, save_path: Path) -> None:
+    """
+    绘制饼图
+    :param data: 数据，可以是列表或字典
+    :param title: 图表标题
+    :param save_path: 保存路径
+    :return: None
+    """
+    if isinstance(data, dict):
+        labels = list(data.keys())
+        values = list(data.values())
+    elif isinstance(data, list):
+        labels = [f"Item {i}" for i in range(len(data))]
+        values = data
+    else:
+        raise ValueError("数据格式不支持")
+
+    plt.figure(figsize=(8, 8))
+    plt.pie(values, labels=labels, autopct="%1.1f%%", startangle=140)
+    plt.title(title)
+    plt.axis("equal")  # 使饼图为圆形
+
+    # plt.show()
+    plt.savefig(save_path)
+    CHARTS_LOGGER.info(f"饼图已保存到: {save_path}")
