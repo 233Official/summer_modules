@@ -319,6 +319,46 @@ class OTXApi:
         )
         return response_json
 
+    def get_pulses_indicators_by_page(
+        self,
+        pulse_id: str,
+        page: int = 1,
+        limit: int = 100,
+        timeout: int = 30,
+    ) -> dict:
+        """
+        获取指定Pulse的Indicators，支持分页
+        :param pulse_id: Pulse的ID
+        :param page: 页码(默认1)
+        :param limit: 每页返回的结果数量(最大为100,超过100会自动被限制为100)
+        :param timeout: 请求超时时间,单位为秒(默认30秒)
+        :return: Pulse的Indicators
+        """
+        if not isinstance(pulse_id, str):
+            raise ValueError("pulse_id必须是字符串")
+        if not isinstance(page, int) or page <= 0:
+            raise ValueError("page必须是正整数")
+        if not isinstance(limit, int) or limit <= 0:
+            raise ValueError("limit必须是正整数")
+        if limit > 100:
+            OTX_API_LOGGER.warning("limit超过100,自动限制为100")
+            limit = 100
+
+        url = f"{OTX_BASE_URL}/otxapi/pulses/{pulse_id}/indicators/"
+        params = {
+            "sort": "-created",
+            "limit": limit,
+            "page": page,
+        }
+        headers = {"X-OTX-API-KEY": self.otx_api_key}
+        response_json = self.http_client.get(
+            url=url,
+            headers=headers,
+            params=params,
+            timeout=timeout,
+        )
+        return response_json
+
     def get_pulses_indicators(self, pulse_id: str, timeout: int = 30) -> dict:
         """
         获取指定Pulse的Indicators
@@ -328,13 +368,44 @@ class OTXApi:
         """
         if not isinstance(pulse_id, str):
             raise ValueError("pulse_id必须是字符串")
-        # 不要用官方文档的 API 接口，查不出来 IPV4 Type 的 IOC
-        url = f"{OTX_BASE_URL}/api/v1/pulses/{pulse_id}/indicators"
+        # 不要下面用官方文档的 API 接口，查不出来 IPV4 Type 的 IOC
+        # url = f"{OTX_BASE_URL}/api/v1/pulses/{pulse_id}/indicators"
+        # 使用如下 url 获取到的是所有类型的 IOC，包括 IPV4 Type 的 IOC
         # url = f"{OTX_BASE_URL}/otxapi/pulses/{pulse_id}/indicators/?sort=-created&limit=10&page=1"
-        headers = {"X-OTX-API-KEY": self.otx_api_key}
-        response_json = self.http_client.get(
-            url=url,
-            headers=headers,
+        # url = f"{OTX_BASE_URL}/otxapi/pulses/{pulse_id}/indicators/?sort=-created&limit=100&page=1"
+
+        result = {}
+
+        reponse_json = self.get_pulses_indicators_by_page(
+            pulse_id=pulse_id,
+            page=1,  # 默认第一页
+            limit=100,  # 每页100条
             timeout=timeout,
         )
-        return response_json
+
+        # 当前限制分页大小为100条，response_json 中的 count 字段如果大于100，则需要继续获取
+        total_count = reponse_json.get("count", 0)
+        result["count"] = total_count
+        if total_count > 100:
+            OTX_API_LOGGER.info(
+                f"Pulse {pulse_id} 的 Indicators 数量超过100, 需要进行分页查询"
+            )
+            all_indicators = []
+            for page in range(1, (total_count // 100) + 2):
+                OTX_API_LOGGER.info(
+                    f"正在获取 Pulse {pulse_id} 的 Indicators 第 {page} 页"
+                )
+                page_response = self.get_pulses_indicators_by_page(
+                    pulse_id=pulse_id,
+                    page=page,
+                    limit=100,
+                    timeout=timeout,
+                )
+                all_indicators.extend(page_response.get("results", []))
+            # 将所有分页的结果合并
+            result["indicators"] = all_indicators
+        else:
+            # 如果不超过100条，则直接返回结果
+            result["indicators"] = reponse_json.get("results", [])
+
+        return result
