@@ -1,6 +1,8 @@
 from pathlib import Path
 import toml
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from summer_modules.security.threat_intelligence.otx.otx_api import OTXApi
 from summer_modules.utils import write_dict_to_json_file
@@ -30,12 +32,13 @@ pulses_indicators = otx_api.get_pulses_indicators(pulses_id)
 SUMMER_MODULES_TEST_LOGGER.info(
     f"length of indicators: {len(pulses_indicators['indicators'])}"
 )
-# write_dict_to_json_file(
-#     data=pulses_indicators,
-#     filepath=TMP_DIR / f"{current_timestamp}_{pulses_id}_pulses_indicators.json",
-#     one_line=True,
-#     # one_line=False,
-# )
+write_dict_to_json_file(
+    data=pulses_indicators,
+    filepath=TMP_DIR
+    / f"{datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y%m%d%H%M%S')}_{pulses_id}_pulses_indicators.json",
+    # one_line=True,
+    one_line=False,
+)
 
 # # 看一个 ioc 超过 100 的 pulse
 # pulse_id = "67e7f5af6e96759df2850fbe"
@@ -46,6 +49,6 @@ SUMMER_MODULES_TEST_LOGGER.info(
 #     one_line=True,
 #     # one_line=False,
 # )
-# SUMMER_MODULES_TEST_LOGGER.info(f"length of iocs: {len(iocs["indicators"])}")
+# SUMMER_MODULES_TEST_LOGGER.info(f"length of iocs: {len(iocs['indicators'])}")
 
 # SUMMER_MODULES_TEST_LOGGER.info(f"pulses_info: {pulses_info}")
