@@ -21,9 +21,7 @@ class Markdown:
         MARKDOWN_LOGGER.info("Markdown module initialized.")
 
     def load(self) -> None:
-        """加载 Markdown 文件内容
-        :return: None
-        """
+        """加载 Markdown 文件内容"""
         MARKDOWN_LOGGER.info(f"加载 markdown 文件内容: {self.markdown_file_path}")
         if not self.markdown_file_path.exists():
             MARKDOWN_LOGGER.warning(f"Markdown 文件不存在: {self.markdown_file_path}")
@@ -34,9 +32,7 @@ class Markdown:
         MARKDOWN_LOGGER.info("已加载 Markdown 文件内容。")
 
     def save(self) -> None:
-        """保存 Markdown 文件
-        :return: None
-        """
+        """保存 Markdown 文件"""
         MARKDOWN_LOGGER.info(f"保存 markdown 内容到 {self.markdown_file_path}")
         with open(self.markdown_file_path, "w", encoding="utf-8") as f:
             f.write(self.content)
@@ -44,9 +40,7 @@ class Markdown:
         self.content = ""  # 清空内容以便下次使用
 
     def clear_all(self) -> None:
-        """清空 Markdown 文件内容以及本地 markdown 文件(如果存在)内容
-        :return: None
-        """
+        """清空 Markdown 文件内容以及本地 markdown 文件(如果存在)内容"""
         MARKDOWN_LOGGER.info("清空 Markdown 文件内容和本地文件内容")
         self.content = ""
         if self.markdown_file_path.exists():
@@ -57,41 +51,51 @@ class Markdown:
                 f"本地 Markdown 文件不存在: {self.markdown_file_path}"
             )
 
+    def add_full_title(self, title: str) -> None:
+        """在 markdown 内容最前添加全文标题
+
+        Args:
+            title (str): 标题内容
+        """
+        self.content = f"# {title}\n\n" + self.content
+
     def add_header(self, header: str, level: int = 1) -> None:
         """添加标题到 Markdown 文件
-        :param header: 标题内容
-        :param level: 标题级别, 1-6, 默认1
-        :return: None
+
+        Args:
+            header (str): 标题内容
+            level (int): 标题级别, 1-6, 默认1
         """
         self.content += f"{'#' * level} {header}\n\n"
 
     def add_paragraph(self, paragraph: str) -> None:
         """添加段落到 Markdown 文件
-        :param paragraph: 段落内容
-        :return: None
+
+        Args:
+            paragraph (str): 段落内容
         """
         self.content += f"{paragraph}\n\n"
 
     # 添加分隔符
     def add_horizontal_rule(self) -> None:
-        """添加水平分隔线到 Markdown 文件
-        :return: None
-        """
+        """添加水平分隔线到 Markdown 文件"""
         self.content += "\n\n---\n\n"
 
     def add_code_block(self, code: str, language: str = "python") -> None:
         """添加代码块到 Markdown 文件
-        :param code: 代码内容
-        :param language: 代码语言, 默认python
-        :return: None
+
+        Args:
+            code (str): 代码内容
+            language (str): 代码语言, 默认python
         """
         self.content += f"```{language}\n{code}\n```\n\n"
 
     def add_list(self, items: list, ordered: bool = False) -> None:
         """添加列表到 Markdown 文件
-        :param items: 列表内容
-        :param ordered: 是否为有序列表, 默认False
-        :return: None
+
+        Args:
+            items (list): 列表内容
+            ordered (bool): 是否为有序列表, 默认False
         """
         self.content += (
             "\n".join(f"{'1.' if ordered else '-'} {item}" for item in items) + "\n\n"
@@ -99,8 +103,9 @@ class Markdown:
 
     def add_note(self, note: str) -> None:
         """添加注释到 Markdown 文件
-        :param note: 注释内容
-        :return: None
+
+        Args:
+            note (str): 注释内容
         """
         self.content += f"> {note}\n\n"
 
@@ -108,10 +113,11 @@ class Markdown:
         self, headers: list, rows: list, alignments: Union[list, None] = None
     ) -> None:
         """添加表格到 Markdown 文件
-        :param headers: 表头内容
-        :param rows: 表格行内容
-        :param alignments: 对齐方式, 默认居中对齐, 可选值为 'left', 'center', 'right'
-        :return: None
+
+        Args:
+            headers (list): 表头内容
+            rows (list): 表格行内容
+            alignments (Union[list, None]): 对齐方式, 默认居中对齐, 可选值为 'left', 'center', 'right'
         """
         # | 1      |    2     |      3 |
         # | :----- | :------: | -----: |
@@ -178,9 +184,10 @@ class Markdown:
         self, image_path: Union[Path, str], alt_text: str = "Image"
     ) -> None:
         """添加本地图片到 Markdown 文件
-        :param image_path: 图片路径
-        :param alt_text: 图片替代文本
-        :return: None
+
+        Args:
+            image_path (Union[Path, str]): 图片路径
+            alt_text (str): 图片替代文本
         """
         # 如果 image_path是Path对象, 则说明添加的是一个本地绝对路径的图片
         if isinstance(image_path, Path):
@@ -201,8 +208,9 @@ class Markdown:
 
     def add_external_image(self, image_url: str, alt_text: str = "Image") -> None:
         """添加外部图片到 Markdown 文件
-        :param image_url: 图片URL
-        :param alt_text: 图片替代文本
-        :return: None
+
+        Args:
+            image_url (str): 图片URL
+            alt_text (str): 图片替代文本
         """
         self.content += f"![{alt_text}]({image_url})\n\n"
