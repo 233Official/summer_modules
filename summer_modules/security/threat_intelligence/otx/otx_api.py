@@ -478,6 +478,10 @@ class OTXApi:
         # 当前限制分页大小为100条，response_json 中的 count 字段如果大于100，则需要继续获取
         total_count = response_json.get("count", 0)
         result["count"] = total_count
+
+        # 上一次请求结束的时间
+        last_request_time = datetime.now()
+
         if total_count > 100:
             OTX_API_LOGGER.info(
                 f"Pulse {pulse_id} 的 Indicators 数量超过100, 需要进行分页查询"
@@ -504,6 +508,15 @@ class OTXApi:
                         f"Pulse {pulse_id} 的 Indicators 第 {page} 页没有活跃 IOC, 停止查询"
                     )
                     break
+
+                current_time = datetime.now()
+                # 如果当前时间距离上一次查询已经过去了 3 s 那么继续下一次查询, 如果没有 3s 那么等待到 3s 后再进行下一次查询
+                if (current_time - last_request_time).total_seconds() < 3:
+                    wait_time = 3 - (current_time - last_request_time).total_seconds()
+                    OTX_API_LOGGER.info(f"等待 {wait_time:.2f} 秒后继续查询下一页")
+                    time.sleep(wait_time)
+
+                last_request_time = datetime.now()
 
         result["indicators"] = active_iocs
         OTX_API_LOGGER.info(

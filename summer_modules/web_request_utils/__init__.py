@@ -35,7 +35,7 @@ class RetryableHTTPClient:
         self,
         logger=None,
         max_retries: int = 3,
-        retry_delay: int = 1,
+        retry_delay: int = 3,
         backoff_factor: float = 1.0,
     ):
         """
@@ -43,7 +43,7 @@ class RetryableHTTPClient:
 
         :param logger: 日志记录器实例
         :param max_retries: 最大重试次数
-        :param retry_delay: 初始重试延迟(秒)
+        :param retry_delay: 初始重试延迟(3秒)
         :param backoff_factor: 重试延迟的指数增长因子
         """
         self.logger = logger
