@@ -11,6 +11,8 @@ from summer_modules.utils import (
     read_txt_file_to_list,
 )
 from summer_modules.web_request_utils import RetryableHTTPClient
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 CURRENT_DIR = Path(__file__).parent.resolve()
 OTX_API_LOGGER = init_and_get_logger(CURRENT_DIR, "otx_api_logger")
@@ -407,5 +409,105 @@ class OTXApi:
         else:
             # 如果不超过100条，则直接返回结果
             result["indicators"] = reponse_json.get("results", [])
+
+        return result
+
+    def validate_ioc(self, ioc_info: dict) -> int:
+        """验证 ioc 信息是否有效
+
+        Args:
+            ioc_info (dict): IOC 信息字典
+        Returns:
+            int:
+            - 如果 IOC 信息有效则返回 1
+            - 如果 IOC 因为 is_active 为 Flase 而无效则返回 0
+            - 如果 IOC 因为 created 超过 1 年而无效则返回 -1
+        """
+        # 判断 ioc.is_active 是否为 True
+        if not ioc_info.get("is_active", False):
+            # OTX_API_LOGGER.debug(
+            #     f"IOC {ioc_info.get('indicator', '未知')} is_active 为 False, 不符合活跃 IOC 的标准"
+            # )
+            return 0
+        # 判断 ioc.created 是否在 1 年内
+        created_str = ioc_info.get("created")
+        if not created_str:
+            OTX_API_LOGGER.error(
+                f"IOC {ioc_info.get('indicator', '未知')} 的 created 字段缺失, 无法判断是否在 1 年内, 理论上应该不存在这种情况, created 应该是 ioc 必填字段"
+            )
+            return 0
+        # ioc created 为 UTC 时间字符串(例如:2025-04-10T19:46:41), 将其转换为 datetime 对象然后与当前时间进行比较
+        now = datetime.now(ZoneInfo("UTC"))
+        ioc_created_time = datetime.strptime(created_str, "%Y-%m-%dT%H:%M:%S").replace(
+            tzinfo=ZoneInfo("UTC")
+        )
+        # 判断 ioc_created_time 是否在 1 年内
+        if (now - ioc_created_time).days > 365:
+            OTX_API_LOGGER.debug(
+                f"IOC {ioc_info.get('indicator', '未知')} 的 created 时间 {ioc_created_time} 超过 1 年, 不符合活跃 IOC 的标准"
+            )
+            return -1
+        # 如果以上两个条件都满足，则认为 IOC 是活跃的
+        return 1
+
+    def get_pulses_active_iocs(self, pulse_id: str, timeout: int = 30) -> dict:
+        """获取指定 pulse 的活跃 IOC
+        活跃判断: is_active 为 True 且 created 在 1 年内
+
+        Args:
+            pulse_id (str): Pulse 的 ID
+            timeout (int, optional): 请求超时时间,单位为秒(默认30秒
+        Returns:
+            dict: 包含活跃 IOC 的字典，包含 count 和 indicators 字段
+        """
+        active_iocs = []
+        result = {}
+
+        response_json = self.get_pulses_indicators_by_page(
+            pulse_id=pulse_id,
+            page=1,  # 默认第一页
+            limit=100,  # 每页100条
+            timeout=timeout,
+        )
+        iocs_100 = response_json.get("results", [])
+        active_iocs_100 = [
+            ioc for ioc in iocs_100 if self.validate_ioc(ioc_info=ioc) == 1
+        ]
+        active_iocs.extend(active_iocs_100)
+
+        # 当前限制分页大小为100条，response_json 中的 count 字段如果大于100，则需要继续获取
+        total_count = response_json.get("count", 0)
+        result["count"] = total_count
+        if total_count > 100:
+            OTX_API_LOGGER.info(
+                f"Pulse {pulse_id} 的 Indicators 数量超过100, 需要进行分页查询"
+            )
+            # 分页查询 ioc 并判断是否活跃, 直到时间大于 1 年停止查询
+            for page in range(2, (total_count // 100) + 2):
+                OTX_API_LOGGER.info(
+                    f"正在获取 Pulse {pulse_id} 的 Indicators 第 {page} 页"
+                )
+                page_response = self.get_pulses_indicators_by_page(
+                    pulse_id=pulse_id,
+                    page=page,
+                    limit=100,
+                    timeout=timeout,
+                )
+                iocs_page = page_response.get("results", [])
+                active_iocs_page = [
+                    ioc for ioc in iocs_page if self.validate_ioc(ioc_info=ioc) == 1
+                ]
+                active_iocs.extend(active_iocs_page)
+                # 如果当前页的结果中没有活跃 IOC，则停止查询
+                if not active_iocs_page:
+                    OTX_API_LOGGER.info(
+                        f"Pulse {pulse_id} 的 Indicators 第 {page} 页没有活跃 IOC, 停止查询"
+                    )
+                    break
+
+        result["indicators"] = active_iocs
+        OTX_API_LOGGER.info(
+            f"Pulse {pulse_id} 的 Indicators 共查询到 {len(active_iocs)} 条活跃 IOC"
+        )
 
         return result

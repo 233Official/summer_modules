@@ -18,8 +18,10 @@ TMP_DIR = CURRENT_DIR / "tmp"
 TMP_DIR.mkdir(parents=True, exist_ok=True)
 
 otx_api = OTXApi(otx_api_key=OTX_API_KEY)
-pulses_id = "67f82020a26d2eb2bb6d4f1e"
+# pulses_id = "67f82020a26d2eb2bb6d4f1e"
 # pulses_id = "67fb93e88bf6ed070ce7164a"
+# 查询一个包含 URL, Domain, File 合计 327 条 IOC 的 pulse
+pulses_id = "682410120b78adf5bf8753dc"
 # pulses_info = otx_api.get_pulses_info(pulses_id)
 current_timestamp = int(time.time())
 # write_dict_to_json_file(
@@ -30,7 +32,7 @@ current_timestamp = int(time.time())
 
 pulses_indicators = otx_api.get_pulses_indicators(pulses_id)
 SUMMER_MODULES_TEST_LOGGER.info(
-    f"length of indicators: {len(pulses_indicators['indicators'])}"
+    f"获取到 {len(pulses_indicators['indicators'])} 条 IOC，"
 )
 write_dict_to_json_file(
     data=pulses_indicators,
@@ -39,6 +41,19 @@ write_dict_to_json_file(
     # one_line=True,
     one_line=False,
 )
+
+pulse_active_indicators = otx_api.get_pulses_active_iocs(pulses_id)
+SUMMER_MODULES_TEST_LOGGER.info(
+    f"获取到 {len(pulses_indicators['indicators'])} 条 IOC, {len(pulse_active_indicators['indicators'])} 条活跃 IOC，"
+)
+write_dict_to_json_file(
+    data=pulse_active_indicators,
+    filepath=TMP_DIR
+    / f"{datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y%m%d%H%M%S')}_{pulses_id}_pulse_active_indicators.json",
+    # one_line=True,
+    one_line=False,
+)
+
 
 # # 看一个 ioc 超过 100 的 pulse
 # pulse_id = "67e7f5af6e96759df2850fbe"
