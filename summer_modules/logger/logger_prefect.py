@@ -196,11 +196,11 @@ def init_and_get_logger(
     fh.setFormatter(CustomFormatter())
     logger.addHandler(fh)
 
-    # 创建控制台处理器并设置级别为DEBUG
-    # ch = logging.StreamHandler()
-    # ch.setLevel(level)
-    # ch.setFormatter(CustomFormatter())
-    # logger.addHandler(ch)
+    # 创建控制台处理器并设置级别为DEBUG(有时候会出现 Prefect logger没有输出控制台的情况, 所以这里要保留)
+    ch = logging.StreamHandler()
+    ch.setLevel(level)
+    ch.setFormatter(CustomFormatter())
+    logger.addHandler(ch)
 
     # 创建Prefect日志处理器
     ph = PrefectLogHandler()
