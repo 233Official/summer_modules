@@ -8,10 +8,11 @@ CURRENT_DIR = Path(__file__).parent.resolve()
 MARKDOWN_LOGGER = init_and_get_logger(
     current_dir=CURRENT_DIR, logger_name="markdown_logger"
 )
+TMP_MARKDOWN_FILEPATH = CURRENT_DIR / "logs/tmp_markdown.md"
 
 
 class Markdown:
-    def __init__(self, markdown_file_path: Path):
+    def __init__(self, markdown_file_path: Path = TMP_MARKDOWN_FILEPATH) -> None:
         self.markdown_file_path = markdown_file_path
         """markdown 文件路径"""
         MARKDOWN_LOGGER.info(f"Markdown file path: {self.markdown_file_path}")
@@ -68,49 +69,96 @@ class Markdown:
         """
         self.content += f"{'#' * level} {header}\n\n"
 
-    def add_paragraph(self, paragraph: str) -> None:
+    def add_paragraph(self, paragraph: str, indent: int = 0) -> None:
         """添加段落到 Markdown 文件
 
         Args:
             paragraph (str): 段落内容
+            indent (int): 缩进级别, 默认0
         """
-        self.content += f"{paragraph}\n\n"
+        # 处理段落内部的每一行，保持缩进一致
+        indentation = "  " * indent
+
+        # 按行分割段落
+        paragraph_lines = paragraph.split("\n")
+
+        # 对每行应用缩进
+        indented_paragraph = "\n".join(
+            f"{indentation}{line}" for line in paragraph_lines
+        )
+
+        # 添加到内容中，并确保段落后有两个换行
+        self.content += f"{indented_paragraph}\n\n"
 
     # 添加分隔符
     def add_horizontal_rule(self) -> None:
         """添加水平分隔线到 Markdown 文件"""
         self.content += "\n\n---\n\n"
 
-    def add_code_block(self, code: str, language: str = "python") -> None:
+    def add_code_block(
+        self, code: str, language: str = "python", indent: int = 0
+    ) -> None:
         """添加代码块到 Markdown 文件
 
         Args:
             code (str): 代码内容
             language (str): 代码语言, 默认python
+            indent (int): 缩进级别, 默认0
         """
-        self.content += f"```{language}\n{code}\n```\n\n"
+        # 处理代码内部的每一行，保持缩进一致
+        indentation = "  " * indent
 
-    def add_list(self, items: list, ordered: bool = False) -> None:
+        # 按行分割代码
+        code_lines = code.split("\n")
+
+        # 对每行应用缩进
+        indented_code = "\n".join(f"{indentation}{line}" for line in code_lines)
+
+        # 组装最终的代码块
+        self.content += (
+            f"{indentation}```{language}\n{indented_code}\n{indentation}```\n\n"
+        )
+
+    def add_list(self, items: list, ordered: bool = False, indent: int = 0) -> None:
         """添加列表到 Markdown 文件
 
         Args:
             items (list): 列表内容
             ordered (bool): 是否为有序列表, 默认False
+            indent (int): 缩进级别, 默认0
         """
         self.content += (
-            "\n".join(f"{'1.' if ordered else '-'} {item}" for item in items) + "\n\n"
+            "\n".join(
+                f"{'  ' * indent}{'1.' if ordered else '-'} {item}" for item in items
+            )
+            + "\n\n"
         )
 
-    def add_note(self, note: str) -> None:
+    def add_note(self, note: str, indent: int = 0) -> None:
         """添加注释到 Markdown 文件
 
         Args:
             note (str): 注释内容
+            indent (int): 缩进级别, 默认0
         """
-        self.content += f"> {note}\n\n"
+        # 处理注释内部的每一行，保持缩进一致
+        indentation = "  " * indent
+
+        # 按行分割注释内容
+        note_lines = note.split("\n")
+
+        # 对每行应用缩进和引用符号
+        indented_note = "\n".join(f"{indentation}> {line}" for line in note_lines)
+
+        # 添加到内容中，并确保段落后有两个换行
+        self.content += f"{indented_note}\n\n"
 
     def add_table(
-        self, headers: list, rows: list, alignments: Union[list, None] = None
+        self,
+        headers: list,
+        rows: list,
+        alignments: Union[list, None] = None,
+        indent: int = 0,
     ) -> None:
         """添加表格到 Markdown 文件
 
@@ -141,7 +189,7 @@ class Markdown:
             alignments = alignments + ["center"] * (len(headers) - len(alignments))
 
         # 构建表头行
-        header_row = "| " + " | ".join(str(h) for h in headers) + " |"
+        header_row = "  " * indent + "| " + " | ".join(str(h) for h in headers) + " |"
 
         # 构建对齐行
         alignment_markers = []
@@ -153,7 +201,7 @@ class Markdown:
             else:  # 默认居中对齐
                 alignment_markers.append(" :-----: ")
 
-        alignment_row = "|" + "|".join(alignment_markers) + "|"
+        alignment_row = "  " * indent + "|" + "|".join(alignment_markers) + "|"
 
         # 构建数据行
         data_rows = []
@@ -166,7 +214,9 @@ class Markdown:
                 )
                 row_data = row_data + [""] * (len(headers) - len(row_data))
 
-            data_row = "| " + " | ".join(str(cell) for cell in row_data) + " |"
+            data_row = (
+                "  " * indent + "| " + " | ".join(str(cell) for cell in row_data) + " |"
+            )
             data_rows.append(data_row)
 
         # 将表格写入文件
@@ -181,13 +231,14 @@ class Markdown:
         )
 
     def add_local_image(
-        self, image_path: Union[Path, str], alt_text: str = "Image"
+        self, image_path: Union[Path, str], alt_text: str = "Image", indent: int = 0
     ) -> None:
         """添加本地图片到 Markdown 文件
 
         Args:
             image_path (Union[Path, str]): 图片路径
             alt_text (str): 图片替代文本
+            indent (int): 缩进级别, 默认0
         """
         # 如果 image_path是Path对象, 则说明添加的是一个本地绝对路径的图片
         if isinstance(image_path, Path):
@@ -204,13 +255,16 @@ class Markdown:
                 f"图片路径类型错误: {image_path}, 图片替代文本: {alt_text}"
             )
             return
-        self.content += f"![{alt_text}]({image_path})\n\n"
+        self.content += f"{'  ' * indent}![{alt_text}]({image_path})\n\n"
 
-    def add_external_image(self, image_url: str, alt_text: str = "Image") -> None:
+    def add_external_image(
+        self, image_url: str, alt_text: str = "Image", indent: int = 0
+    ) -> None:
         """添加外部图片到 Markdown 文件
 
         Args:
             image_url (str): 图片URL
             alt_text (str): 图片替代文本
+            indent (int): 缩进级别, 默认0
         """
-        self.content += f"![{alt_text}]({image_url})\n\n"
+        self.content += f"{'  ' * indent}![{alt_text}]({image_url})\n\n"
