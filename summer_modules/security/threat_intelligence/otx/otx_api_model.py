@@ -78,12 +78,18 @@ class GetPulsesActiveIOCsResponseModel(BaseModel):
 
     count: int = Field(
         default=0,
-        description="活跃 IOC 的数量",
+        description="此 pulse 的全部 IOC 的数量",
     )
-    """活跃 IOC 的数量"""
+    """此 pulse 的全部 IOC 的数量"""
 
     active_iocs: list[OTXIOCModel] = Field(
         default_factory=list,
         description="活跃 IOC 的列表",
     )
     """活跃 IOC 的列表"""
+
+    active_iocs_count: int = Field(
+        default=0,
+        description="活跃 IOC 的数量",
+    )
+    """活跃 IOC 的数量"""

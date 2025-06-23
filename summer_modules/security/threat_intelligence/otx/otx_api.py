@@ -460,13 +460,23 @@ class OTXApi:
     ) -> GetPulsesActiveIOCsResponseModel:
         """获取指定 pulse 的活跃 IOC
         活跃判断: is_active 为 True 且 created 在 1 年内
+        该方法会分页查询所有的 IOC, 每次查询 100 条, 直到查询到的 IOC 的 created 时间早于 last_created_time 或者没有更多的活跃 IOC 为止
+        如果 last_created_time 为 None, 则不限制查询时间, 直到没有更多活跃 IOC 为止
 
         Args:
             pulse_id (str): Pulse 的 ID
             last_created_time (datetime): 数据库中该 pulse 的 ioc 的最后创建时间, 用于判断何时停止获取 IOC
             timeout (int, optional): 请求超时时间,单位为秒(默认30秒
         Returns:
-            dict: 包含活跃 IOC 的字典，包含 count 和 indicators 字段
+            GetPulsesActiveIOCsResponseModel: 包含活跃 IOC 的响应模型
+        例如:
+            {
+                "count": 100,
+                "active_iocs": [xxx, xxx, ...]  # OTXIOCModel 的列表
+            }
+        说明:
+            - count: 活跃 IOC 的总数
+            - active_iocs: 活跃 IOC 的列表, 每个元素是 OTXIOCModel 的实例
         """
         active_iocs: list[OTXIOCModel] = []
         result = GetPulsesActiveIOCsResponseModel()
@@ -483,7 +493,29 @@ class OTXApi:
             limit=100,  # 每页100条
             timeout=timeout,
         )
+
+        total_count = response_json.get("count", 0)
+        result.count = total_count
         iocs_100 = response_json.get("results", [])
+
+        # 判断第一条 IOC created 时间是否小于等于 last_created_time, 如果是则不需要继续查询
+        if last_created_time and iocs_100:
+            first_ioc_created_str = iocs_100[0].get("created")
+            if first_ioc_created_str:
+                first_ioc_created_time = datetime.strptime(
+                    first_ioc_created_str, "%Y-%m-%dT%H:%M:%S"
+                ).replace(tzinfo=last_created_time.tzinfo)
+                if first_ioc_created_time <= last_created_time:
+                    OTX_API_LOGGER.info(
+                        f"Pulse {pulse_id} 的 Indicators 第 1 页的第一个 IOC 的 created 时间早于或等于 last_created_time, 停止查询"
+                    )
+                    return result
+            else:
+                OTX_API_LOGGER.error(
+                    f"Pulse {pulse_id} 的 Indicators 第 1 页的第一个 IOC 的 created 字段缺失, 无法判断是否早于 last_created_time, 停止查询; 这种情况理论上不可能发生, 如果程序进入此分支, 请检查 OTX API 的返回数据是否符合预期"
+                )
+                return result
+
         active_iocs_100 = [
             OTXIOCModel(**ioc)
             for ioc in iocs_100
@@ -493,9 +525,6 @@ class OTXApi:
         active_iocs.extend(active_iocs_100)
 
         # 当前限制分页大小为100条，response_json 中的 count 字段如果大于100，则需要继续获取
-        total_count = response_json.get("count", 0)
-        result.count = total_count
-
         # 上一次请求结束的时间
         last_request_time = datetime.now()
 
@@ -543,22 +572,10 @@ class OTXApi:
 
                 # 如果当前 IOC 已经早于 last_created_time, 则停止查询
                 if last_created_time and active_iocs_page:
-                    last_time = last_created_time
-                    created_time = active_iocs_page[-1].created
-                    OTX_API_LOGGER.debug(
-                        f"比较前 - last_created_time: {last_time}, tzinfo: {last_time.tzinfo}"
+                    created_time = (active_iocs_page[-1].created).replace(
+                        tzinfo=last_created_time.tzinfo
                     )
-                    OTX_API_LOGGER.debug(
-                        f"比较前 - active_ioc创建时间: {created_time}, tzinfo: {created_time.tzinfo}"
-                    )
-
-                    if last_time.tzinfo is None and created_time.tzinfo is not None:
-                        # 为last_time添加与created_time相同的时区
-                        last_time = last_time.replace(tzinfo=created_time.tzinfo)
-                    elif last_time.tzinfo is not None and created_time.tzinfo is None:
-                        # 为created_time添加与last_time相同的时区
-                        created_time = created_time.replace(tzinfo=last_time.tzinfo)
-                    if created_time <= last_time:
+                    if created_time <= last_created_time:
                         OTX_API_LOGGER.info(
                             f"Pulse {pulse_id} 的 Indicators 第 {page} 页的最后一个 IOC 的 created 时间早于或等于 last_created_time, 停止查询"
                         )
@@ -580,8 +597,9 @@ class OTXApi:
                 last_request_time = datetime.now()
 
         result.active_iocs = active_iocs
+        result.active_iocs_count = len(active_iocs)
         OTX_API_LOGGER.info(
-            f"Pulse {pulse_id} 的 Indicators 共查询到 {len(active_iocs)} 条活跃 IOC"
+            f"Pulse {pulse_id} 的 Indicators 共查询到 {result.active_iocs_count} 条活跃 IOC"
         )
 
         return result
