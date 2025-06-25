@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Union
+from typing import Union, Optional
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties as FP
 
@@ -20,9 +20,15 @@ if chinese_font:
 else:
     CHARTS_LOGGER.warning("没有找到中文字体,可能会导致中文显示不正常")
 
+TMP_PIC_FILEPATH = (CURRENT_DIR / "logs/tmp_pic.png").resolve()
+
 
 def plot_bar_chart(
-    data: Union[list, dict], title: str, xlabel: str, ylabel: str, save_path: Path
+    data: Union[list, dict],
+    title: str,
+    xlabel: str,
+    ylabel: str,
+    save_path: Optional[Path] = TMP_PIC_FILEPATH,
 ) -> None:
     """
     绘制柱形图
@@ -59,7 +65,9 @@ def plot_bar_chart(
     CHARTS_LOGGER.info(f"柱形图已保存到: {save_path}")
 
 
-def plot_pie_chart(data: Union[list, dict], title: str, save_path: Path) -> None:
+def plot_pie_chart(
+    data: Union[list, dict], title: str, save_path: Optional[Path] = TMP_PIC_FILEPATH
+) -> None:
     """
     绘制饼图
     :param data: 数据，可以是列表或字典
