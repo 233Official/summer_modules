@@ -8,7 +8,7 @@ CURRENT_DIR = Path(__file__).parent.resolve()
 MARKDOWN_LOGGER = init_and_get_logger(
     current_dir=CURRENT_DIR, logger_name="markdown_logger"
 )
-TMP_MARKDOWN_FILEPATH = CURRENT_DIR / "logs/tmp_markdown.md"
+TMP_MARKDOWN_FILEPATH = (CURRENT_DIR / "logs/tmp_markdown.md").resolve()
 
 
 class Markdown:
@@ -18,6 +18,10 @@ class Markdown:
         MARKDOWN_LOGGER.info(f"Markdown file path: {self.markdown_file_path}")
         self.content = ""
         """markdown 文件内容"""
+        # 如果 markdown_file_path 是临时文件路径, 则在初始化时清空内容
+        if self.markdown_file_path == TMP_MARKDOWN_FILEPATH:
+            MARKDOWN_LOGGER.info("使用临时 Markdown 文件路径, 初始化时清空内容")
+            self.clear_all()
         self.load()
         MARKDOWN_LOGGER.info("Markdown module initialized.")
 
@@ -25,7 +29,7 @@ class Markdown:
         """加载 Markdown 文件内容"""
         MARKDOWN_LOGGER.info(f"加载 markdown 文件内容: {self.markdown_file_path}")
         if not self.markdown_file_path.exists():
-            MARKDOWN_LOGGER.warning(f"Markdown 文件不存在: {self.markdown_file_path}")
+            MARKDOWN_LOGGER.warning(f"Markdown 文件不存在: {self.markdown_file_path}, 无需加载")
             return
 
         with open(self.markdown_file_path, "r", encoding="utf-8") as f:
@@ -69,12 +73,15 @@ class Markdown:
         """
         self.content += f"{'#' * level} {header}\n\n"
 
-    def add_paragraph(self, paragraph: str, indent: int = 0) -> None:
+    def add_paragraph(
+        self, paragraph: str, indent: int = 0, sub_level: int = 0
+    ) -> None:
         """添加段落到 Markdown 文件
 
         Args:
             paragraph (str): 段落内容
             indent (int): 缩进级别, 默认0
+            sub_level (int): 子级别, 用于处理多级标题, 默认0; 例如 sub_level=1 时, 所有的 # 标题会增加一级
         """
         # 处理段落内部的每一行，保持缩进一致
         indentation = "  " * indent
@@ -86,6 +93,13 @@ class Markdown:
         indented_paragraph = "\n".join(
             f"{indentation}{line}" for line in paragraph_lines
         )
+
+        # 处理标题级别
+        if sub_level > 0:
+            # 如果有子级别, 则增加标题级别(匹配 `# ` 更改为 `## `)
+            indented_paragraph = indented_paragraph.replace(
+                "# ", "#" * (sub_level + 1) + " "
+            )
 
         # 添加到内容中，并确保段落后有两个换行
         self.content += f"{indented_paragraph}\n\n"
