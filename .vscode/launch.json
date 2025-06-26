@@ -2,16 +2,6 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "SummerModulesTestMain",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "tests/test_main.py",
-      "console": "integratedTerminal",
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}"
-      }
-    },
-    {
       "name": "SummerModules单文件脚本调试",
       "type": "debugpy",
       "request": "launch",
@@ -20,6 +10,28 @@
       "env": {
         "PYTHONPATH": "${workspaceFolder}"
       }
+    },
+    {
+      "name": "Debug current pytest file",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "${file}",
+        "-v"
+      ],
+      "justMyCode": false
+    },
+    {
+      "name": "Debug current pytest function",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "${file}::${selectedText}",
+        "-v"
+      ],
+      "justMyCode": false
     }
   ]
 }

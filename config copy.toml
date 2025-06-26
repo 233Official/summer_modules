@@ -10,3 +10,9 @@ branch = "main"
 repo_path = "xxxx"
 gitlab_base_url = "https://gitlab.com"
 gitlab_repo_image_base_path = "xxx/xxx"
+
+[hbase]
+host = "localhost"
+port = 8080
+username = "hbase"
+password = "hbase"

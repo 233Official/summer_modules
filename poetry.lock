@@ -3244,6 +3244,22 @@ files = [
 ]
 
 [[package]]
+name = "thrift"
+version = "0.22.0"
+description = "Python bindings for the Apache Thrift RPC system"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "thrift-0.22.0.tar.gz", hash = "sha256:42e8276afbd5f54fe1d364858b6877bc5e5a4a5ed69f6a005b94ca4918fe1466"},
+]
+
+[package.extras]
+all = ["tornado (>=4.0)", "twisted"]
+tornado = ["tornado (>=4.0)"]
+twisted = ["twisted"]
+
+[[package]]
 name = "toml"
 version = "0.10.2"
 description = "Python Library for Tom's Obvious, Minimal Language"
@@ -3692,4 +3708,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11 <3.14"
-content-hash = "483099ee65e6e34562566e5a4b0d3fed50d409f9827fa52269676cdd6780e34e"
+content-hash = "8b44f70c5d9704c9ef9bd2f7c6e9e66d9cd45c4c03db79114ffdddf3b0e016cc"
