@@ -14,17 +14,22 @@ PORT = SSH_CONFIG.get("port", 22)
 if not HOSTNAME or not USERNAME or not PASSWORD:
     raise ValueError("配置文件中 ssh 配置项不完整")
 
-
-ssh_connection = SSHConnection(
-    hostname=HOSTNAME,
-    username=USERNAME,
-    password=PASSWORD,
-    port=PORT,
-)
+HBASE_CONFIG = CONFIG.get("hbase", {})
+if not HBASE_CONFIG:
+    raise ValueError("配置文件中未找到 hbase 配置项")
+HBASE_HOSTNAME = HBASE_CONFIG.get("host")
+HBASE_USERNAME = HBASE_CONFIG.get("username")
+HBASE_PASSWORD = HBASE_CONFIG.get("password")
 
 
 def test_execute_command():
     """测试单个命令的结构化执行"""
+    ssh_connection = SSHConnection(
+        hostname=HOSTNAME,
+        username=USERNAME,
+        password=PASSWORD,
+        port=PORT,
+    )
     try:
         ssh_connection.connect()
 
@@ -77,6 +82,12 @@ def test_execute_command():
 
 def test_execute_interactive_commands():
     """测试结构化交互式命令执行"""
+    ssh_connection = SSHConnection(
+        hostname=HOSTNAME,
+        username=USERNAME,
+        password=PASSWORD,
+        port=PORT,
+    )
     try:
         ssh_connection.connect()
 
@@ -168,19 +179,25 @@ def test_execute_interactive_commands():
 
 def test_hbase_execute_interactive_command():
     """调用 execute_interactive_commands 执行 HBase shell 命令"""
-    host = CONFIG["hbase"]["host"]
-    username = CONFIG["hbase"]["username"]
-    password = CONFIG["hbase"]["password"]
-    port = 22
+    # host = CONFIG["hbase"]["host"]
+    # username = CONFIG["hbase"]["username"]
+    # password = CONFIG["hbase"]["password"]
+    # port = 22
+    # hbase_ssh_connection = SSHConnection(
+    #     hostname=host,
+    #     username=username,
+    #     password=password,
+    #     port=port,
+    # )
     hbase_ssh_connection = SSHConnection(
-        hostname=host,
-        username=username,
-        password=password,
-        port=port,
+        hostname=HBASE_HOSTNAME,
+        username=HBASE_USERNAME,
+        password=HBASE_PASSWORD,
+        port=22,
     )
     try:
         hbase_ssh_connection.connect()
-        SUMMER_MODULES_TEST_LOGGER.info(f"已连接到 {host} 的 SSH 服务器")
+        SUMMER_MODULES_TEST_LOGGER.info(f"已连接到 {HBASE_HOSTNAME} 的 SSH 服务器")
 
         # 测试 HBase 命令，使用更大的缓冲区
         commands = [
@@ -250,7 +267,7 @@ def test_execute_hbase_command():
         # 测试 2: 执行 scan 命令获取指定表数据 - 词条命令实测终端 3s 内完成
         result2 = hbase_ssh_connection.execute_hbase_command(
             command="scan 'cloud-whoisxml-whois-data', {FILTER => \"TimestampsFilter(1750318712510)\", LIMIT => 2}",
-            timeout=10000,  # 测试超时时间
+            timeout=10,  # 测试超时时间
         )
         if not result2 or not result2.success:
             SUMMER_MODULES_TEST_LOGGER.error(
