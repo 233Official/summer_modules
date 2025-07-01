@@ -1,10 +1,16 @@
 from pathlib import Path
-from summer_modules.logger import init_and_get_logger
 from typing import Union, Optional, List
 import paramiko
 import time
 import re
-from .ssh_model import InteractiveCommandResult, CommandResult, SingleCommandResult
+import traceback
+
+from summer_modules.logger import init_and_get_logger
+from summer_modules.ssh.ssh_model import (
+    InteractiveCommandResult,
+    CommandResult,
+    SingleCommandResult,
+)
 
 CURRENT_DIR = Path(__file__).parent.resolve()
 SSH_LOGGER = init_and_get_logger(current_dir=CURRENT_DIR, logger_name="ssh_logger")
@@ -31,7 +37,11 @@ class SSHConnection:
         SSH_LOGGER.info(f"SSH connection initialized for {self.hostname}")
 
     def connect(self, enbale_hbase_shell: bool = False) -> None:
-        """建立 SSH 连接"""
+        """建立 SSH 连接
+
+        Args:
+            enbale_hbase_shell: 是否初始化 HBase shell, 默认为 False
+        """
         self.client = paramiko.SSHClient()
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.client.connect(
@@ -47,8 +57,18 @@ class SSHConnection:
         SSH_LOGGER.info(f"已初始化交互式 shell 用于执行命令集")
         # 如果需要 HBase shell，则初始化
         if enbale_hbase_shell:
-            self.hbase_shell = self.client.invoke_shell()  # type: ignore
-
+            self.hbase_shell = self.client.invoke_shell()
+            # self.hbase_shell 尝试进入 HBase shell 环境
+            hbase_shell_init_result = self.execute_interactive_commands(
+                commands=["hbase shell"],
+                shell=self.hbase_shell,
+            )
+            if not hbase_shell_init_result or not hbase_shell_init_result.success:
+                error_msg = (
+                    "HBase shell 初始化失败，请检查 HBase 是否已正确安装并配置环境变量"
+                )
+                SSH_LOGGER.error(error_msg)
+                raise RuntimeError(error_msg)
             SSH_LOGGER.info(f"HBase shell 已初始化用于执行 HBase 命令")
 
     def execute_command(self, command: str, timeout: int = 30) -> SingleCommandResult:
@@ -131,11 +151,13 @@ class SSHConnection:
             wait_for_ready: 是否等待 shell 准备就绪，默认为 True
             wait_between_commands: 每个命令之间的等待时间，默认为 0.5 秒
             buffer_size: 数据读取缓冲区大小，默认为 8192 字节
+            shell: 可选的 paramiko Channel 对象，如果未提供则使用 invoke_shell
         Returns:
             InteractiveCommandResult: 包含完整执行结果的结构化对象，如果执行失败则返回 None
         """
         start_time = time.time()
         if not shell:
+            SSH_LOGGER.debug("未提供 shell, 使用 self.invoke_shell")
             shell = self.invoke_shell
 
         if not shell:
@@ -266,7 +288,7 @@ class SSHConnection:
                         f"命令执行超时，当前执行到第 {current_command_index + 1} 个命令"
                     )
                     if sudo_command_in_progress:
-                        error_message += "（sudo 命令）"
+                        error_message += "(sudo 命令)"
                     SSH_LOGGER.warning(error_message)
                     execution_successful = False
                     break
@@ -398,6 +420,9 @@ class SSHConnection:
                             break
 
                 else:
+                    SSH_LOGGER.debug(
+                        "当前没有可读取的数据，可能是命令正在执行中或等待输入"
+                    )
                     time.sleep(0.1)
 
         except Exception as e:
@@ -453,7 +478,47 @@ class SSHConnection:
         Returns:
             SingleCommandResult: 包含执行结果的结构化对象
         """
-        pass
+        # 检查 HBase shell 是否已初始化
+        if not self.hbase_shell:
+            error_msg = "HBase shell 未初始化，请先调用 connect() 方法"
+            SSH_LOGGER.error(error_msg)
+            return SingleCommandResult(
+                success=False,
+                command=command,
+                error_message=error_msg,
+                execution_time=0,
+            )
+
+        start_time = time.time()
+
+        # 调用 execute_interactive_commands 方法执行 HBase shell 命令
+        result = self.execute_interactive_commands(
+            commands=[command],
+            timeout=timeout,
+            wait_for_ready=False,  # HBase shell 已经在连接时准备好了
+            buffer_size=81920,  # 使用大些的缓冲区大小
+            shell=self.hbase_shell,  # 使用 HBase shell
+        )
+        if not result or not result.success:
+            error_msg = f"HBase shell 命令执行失败: {result.error_message if result else '未知错误'}"
+            SSH_LOGGER.error(error_msg)
+            return SingleCommandResult(
+                success=False,
+                command=command,
+                error_message=error_msg,
+                execution_time=time.time() - start_time,
+            )
+        # 如果执行成功，返回结果
+        SSH_LOGGER.info(
+            f"已执行 HBase shell 命令: {command} 在 {self.hostname} (用时: {result.execution_time:.2f}s)"
+        )
+        return SingleCommandResult(
+            success=True,
+            command=command,
+            output=result.formatted_output,
+            exit_code=0,  # HBase shell 命令通常没有退出码
+            execution_time=time.time() - start_time,
+        )
 
     def _mask_sensitive_info(
         self, text: str, command_context: Optional[list] = None, current_index: int = -1

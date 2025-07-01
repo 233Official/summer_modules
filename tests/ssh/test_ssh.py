@@ -1,4 +1,5 @@
 from pathlib import Path
+import traceback
 
 from tests import SUMMER_MODULES_TEST_LOGGER, CONFIG
 from summer_modules.ssh import SSHConnection
@@ -166,6 +167,7 @@ def test_execute_interactive_commands():
 
 
 def test_hbase_execute_interactive_command():
+    """调用 execute_interactive_commands 执行 HBase shell 命令"""
     host = CONFIG["hbase"]["host"]
     username = CONFIG["hbase"]["username"]
     password = CONFIG["hbase"]["password"]
@@ -210,7 +212,9 @@ def test_hbase_execute_interactive_command():
         SUMMER_MODULES_TEST_LOGGER.info(f"  - 成功: {result.success}")
         SUMMER_MODULES_TEST_LOGGER.info(f"  - 命令数量: {result.command_count}")
         SUMMER_MODULES_TEST_LOGGER.info(f"  - 执行时间: {result.execution_time:.2f}s")
-        SUMMER_MODULES_TEST_LOGGER.info(f"  - 最后命令输出:\n{result.get_last_command_output()}")    
+        SUMMER_MODULES_TEST_LOGGER.info(
+            f"  - 最后命令输出:\n{result.get_last_command_output()}"
+        )
         SUMMER_MODULES_TEST_LOGGER.info(f"  - 所有命令输出:\n{result.formatted_output}")
 
     except Exception as e:
@@ -221,10 +225,53 @@ def test_hbase_execute_interactive_command():
         hbase_ssh_connection.close()
 
 
+def test_execute_hbase_command():
+    host = CONFIG["hbase"]["host"]
+    username = CONFIG["hbase"]["username"]
+    password = CONFIG["hbase"]["password"]
+    port = 22
+    hbase_ssh_connection = SSHConnection(
+        hostname=host,
+        username=username,
+        password=password,
+        port=port,
+    )
+    hbase_ssh_connection.connect(enbale_hbase_shell=True)
+
+    try:
+        # 测试 1: 执行 list 命令获取所有表
+        result1 = hbase_ssh_connection.execute_hbase_command("list")
+        if not result1 or not result1.success:
+            SUMMER_MODULES_TEST_LOGGER.error(
+                f"HBase list 命令执行失败: {result1.error_message if result1 else '未知错误'}"
+            )
+        SUMMER_MODULES_TEST_LOGGER.info(f"HBase list 命令结果:\n{result1.output}")
+
+        # 测试 2: 执行 scan 命令获取指定表数据 - 词条命令实测终端 3s 内完成
+        result2 = hbase_ssh_connection.execute_hbase_command(
+            command="scan 'cloud-whoisxml-whois-data', {FILTER => \"TimestampsFilter(1750318712510)\", LIMIT => 2}",
+            timeout=10000,  # 测试超时时间
+        )
+        if not result2 or not result2.success:
+            SUMMER_MODULES_TEST_LOGGER.error(
+                f"HBase scan 命令执行失败: {result2.error_message if result2 else '未知错误'}"
+            )
+        SUMMER_MODULES_TEST_LOGGER.info(f"HBase scan 命令结果:\n{result2.output}")
+
+    except Exception as e:
+        stack_trace = traceback.format_exc()
+        SUMMER_MODULES_TEST_LOGGER.error(f"HBase list 命令执行失败: {e}")
+        SUMMER_MODULES_TEST_LOGGER.error(f"堆栈跟踪:\n{stack_trace}")
+        raise e
+    finally:
+        hbase_ssh_connection.close()
+
+
 def main():
     # test_execute_command()
     # test_execute_interactive_commands()
-    test_hbase_execute_interactive_command()
+    # test_hbase_execute_interactive_command()
+    test_execute_hbase_command()
 
 
 if __name__ == "__main__":
