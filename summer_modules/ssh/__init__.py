@@ -15,14 +15,22 @@ class SSHConnection:
         self, hostname: str, username: str, password: str, port: int = 22
     ) -> None:
         self.hostname = hostname
+        """SSH 服务器的主机名或 IP 地址"""
         self.username = username
+        """SSH 服务器的用户名"""
         self.password = password
+        """SSH 服务器的密码"""
         self.port = port
+        """SSH 服务器的端口，默认为 22"""
         self.client: Optional[paramiko.SSHClient] = None
+        """Paramiko SSH 客户端实例"""
         self.invoke_shell: Optional[paramiko.Channel] = None
+        """用于执行命令的交互式 shell"""
+        self.hbase_shell: Optional[paramiko.Channel] = None
+        """专门用于执行 Hbase 命令的交互式 shell"""
         SSH_LOGGER.info(f"SSH connection initialized for {self.hostname}")
 
-    def connect(self) -> None:
+    def connect(self, enbale_hbase_shell: bool = False) -> None:
         """建立 SSH 连接"""
         self.client = paramiko.SSHClient()
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -34,8 +42,14 @@ class SSHConnection:
             look_for_keys=False,
             allow_agent=False,
         )
-        self.invoke_shell = self.client.invoke_shell()
         SSH_LOGGER.info(f"已连接到 {self.hostname} 的 SSH 服务器")
+        self.invoke_shell = self.client.invoke_shell()
+        SSH_LOGGER.info(f"已初始化交互式 shell 用于执行命令集")
+        # 如果需要 HBase shell，则初始化
+        if enbale_hbase_shell:
+            self.hbase_shell = self.client.invoke_shell()  # type: ignore
+
+            SSH_LOGGER.info(f"HBase shell 已初始化用于执行 HBase 命令")
 
     def execute_command(self, command: str, timeout: int = 30) -> SingleCommandResult:
         """执行单个命令并返回结构化结果
@@ -47,7 +61,7 @@ class SSHConnection:
             SingleCommandResult: 包含执行结果的结构化对象
         """
         start_time = time.time()
-        
+
         if not self.client:
             error_msg = "SSH 连接未建立，请先调用 connect() 方法"
             SSH_LOGGER.error(error_msg)
@@ -55,7 +69,7 @@ class SSHConnection:
                 success=False,
                 command=command,
                 error_message=error_msg,
-                execution_time=time.time() - start_time
+                execution_time=time.time() - start_time,
             )
 
         try:
@@ -75,16 +89,18 @@ class SSHConnection:
                     output=output.strip(),
                     exit_code=exit_status,
                     execution_time=execution_time,
-                    error_message=error_msg
+                    error_message=error_msg,
                 )
 
-            SSH_LOGGER.info(f"已执行命令: {command} 在 {self.hostname} (用时: {execution_time:.2f}s)")
+            SSH_LOGGER.info(
+                f"已执行命令: {command} 在 {self.hostname} (用时: {execution_time:.2f}s)"
+            )
             return SingleCommandResult(
                 success=True,
                 command=command,
                 output=output.strip(),
                 exit_code=exit_status,
-                execution_time=execution_time
+                execution_time=execution_time,
             )
 
         except Exception as e:
@@ -95,7 +111,7 @@ class SSHConnection:
                 success=False,
                 command=command,
                 execution_time=execution_time,
-                error_message=error_msg
+                error_message=error_msg,
             )
 
     def execute_interactive_commands(
@@ -105,6 +121,7 @@ class SSHConnection:
         wait_for_ready: bool = True,
         wait_between_commands: float = 0.5,
         buffer_size: int = 8192,
+        shell: Optional[paramiko.Channel] = None,
     ) -> Union[InteractiveCommandResult, None]:
         """执行交互式命令序列
 
@@ -118,15 +135,17 @@ class SSHConnection:
             InteractiveCommandResult: 包含完整执行结果的结构化对象，如果执行失败则返回 None
         """
         start_time = time.time()
-        
-        if not self.invoke_shell:
+        if not shell:
+            shell = self.invoke_shell
+
+        if not shell:
             error_msg = "SSH 连接未建立，请先调用 connect() 方法"
             SSH_LOGGER.error(error_msg)
             return InteractiveCommandResult(
                 success=False,
                 commands=[],
                 error_message=error_msg,
-                execution_time=time.time() - start_time
+                execution_time=time.time() - start_time,
             )
 
         # 标准化输入为列表
@@ -142,7 +161,7 @@ class SSHConnection:
                 success=False,
                 commands=[],
                 error_message=error_msg,
-                execution_time=time.time() - start_time
+                execution_time=time.time() - start_time,
             )
 
         # 等待 shell 准备就绪
@@ -159,7 +178,7 @@ class SSHConnection:
 
         # 发送第一个命令
         first_command = command_list[0]
-        self.invoke_shell.send(f"{first_command}\n".encode("utf-8"))
+        shell.send(f"{first_command}\n".encode("utf-8"))
 
         # 安全日志记录：隐藏可能的密码
         safe_command = self._mask_sensitive_info(
@@ -183,9 +202,9 @@ class SSHConnection:
                 r"hbase\(main\):\d+:\d+>$",  # hbase(main):001:0>
                 # 新增 sudo 命令执行后的提示符模式
                 r".*@.*:.+[$#]\s*$",  # username@hostname:/path#
-                r".*@.*:.+[$#]$",     # username@hostname:/path#
-                r"root@.*:.+[$#]\s*$", # root@hostname:/path#
-                r"root@.*:.+[$#]$",    # root@hostname:/path#
+                r".*@.*:.+[$#]$",  # username@hostname:/path#
+                r"root@.*:.+[$#]\s*$",  # root@hostname:/path#
+                r"root@.*:.+[$#]$",  # root@hostname:/path#
             ]
 
             for pattern in prompt_patterns:
@@ -194,7 +213,7 @@ class SSHConnection:
                         f"检测到提示符模式: {pattern} in line: {last_line}"
                     )
                     return True
-                
+
             # 针对 sudo 命令特殊处理：检查是否有任何常见的提示符特征
             sudo_indicators = ["$", "#", ">", "@"]
             if any(indicator in last_line for indicator in sudo_indicators) and (
@@ -202,7 +221,7 @@ class SSHConnection:
             ):
                 SSH_LOGGER.debug(f"检测到可能的 sudo 后提示符: {last_line}")
                 return True
-                
+
             return False
 
         def is_waiting_for_input(text: str) -> bool:
@@ -230,25 +249,31 @@ class SSHConnection:
             while True:
                 # 对于 sudo 命令特殊处理
                 sudo_command_in_progress = False
-                if current_command_index > 0 and current_command_index < len(command_list):
-                    if command_list[current_command_index - 1].strip().startswith("sudo "):
+                if current_command_index > 0 and current_command_index < len(
+                    command_list
+                ):
+                    if (
+                        command_list[current_command_index - 1]
+                        .strip()
+                        .startswith("sudo ")
+                    ):
                         sudo_command_in_progress = True
-                        
+
                 # 超时检查，为 sudo 命令提供更宽松的超时处理
                 current_timeout = timeout * 2 if sudo_command_in_progress else timeout
                 if time.time() - start_time > current_timeout:
-                    error_message = f"命令执行超时，当前执行到第 {current_command_index + 1} 个命令"
+                    error_message = (
+                        f"命令执行超时，当前执行到第 {current_command_index + 1} 个命令"
+                    )
                     if sudo_command_in_progress:
                         error_message += "（sudo 命令）"
                     SSH_LOGGER.warning(error_message)
                     execution_successful = False
                     break
 
-                if self.invoke_shell.recv_ready():
+                if shell.recv_ready():
                     try:
-                        chunk = self.invoke_shell.recv(buffer_size).decode(
-                            "utf-8", errors="ignore"
-                        )
+                        chunk = shell.recv(buffer_size).decode("utf-8", errors="ignore")
                     except UnicodeDecodeError:
                         SSH_LOGGER.warning("数据解码错误，跳过此数据块")
                         continue
@@ -279,38 +304,52 @@ class SSHConnection:
                         should_send_next = is_waiting_for_input(
                             current_output
                         ) or is_prompt_detected(current_output)
-                        
+
                         # 特殊处理 sudo 命令：检查是否为密码输入后的结果
                         if not should_send_next and current_command_index > 0:
                             prev_cmd = command_list[current_command_index - 1]
                             current_cmd = command_list[current_command_index]
-                            
+
                             # 如果前一个命令是 sudo，当前是密码，并且有一定时间过去了
-                            if prev_cmd.startswith("sudo ") and " " not in current_cmd.strip():
+                            if (
+                                prev_cmd.startswith("sudo ")
+                                and " " not in current_cmd.strip()
+                            ):
                                 # 等待足够时间确保命令已经执行
-                                if time.time() - start_time > 1.0 and len(current_output) > 0:
+                                if (
+                                    time.time() - start_time > 1.0
+                                    and len(current_output) > 0
+                                ):
                                     # 检查输出中是否有表示命令执行结束的内容
-                                    output_lines = current_output.strip().split('\n')
-                                    if len(output_lines) >= 2 and not current_output.endswith("password for"):
-                                        SSH_LOGGER.debug(f"sudo 密码命令似乎已完成，检测到 {len(output_lines)} 行输出")
+                                    output_lines = current_output.strip().split("\n")
+                                    if len(
+                                        output_lines
+                                    ) >= 2 and not current_output.endswith(
+                                        "password for"
+                                    ):
+                                        SSH_LOGGER.debug(
+                                            f"sudo 密码命令似乎已完成，检测到 {len(output_lines)} 行输出"
+                                        )
                                         should_send_next = True
-                        
+
                         if should_send_next:
                             # 保存当前命令的输出
                             current_cmd = command_list[current_command_index]
                             cleaned_output = self._clean_command_output(
                                 current_output, current_cmd
                             )
-                            
+
                             # 检查是否为敏感命令
-                            is_sensitive = self._is_sensitive_command(current_cmd, command_list, current_command_index)
-                            
+                            is_sensitive = self._is_sensitive_command(
+                                current_cmd, command_list, current_command_index
+                            )
+
                             command_results.append(
                                 CommandResult(
                                     command=current_cmd,
                                     output=cleaned_output,
                                     index=current_command_index,
-                                    is_sensitive=is_sensitive
+                                    is_sensitive=is_sensitive,
                                 )
                             )
 
@@ -322,7 +361,7 @@ class SSHConnection:
                             # 等待一小段时间确保提示完全显示
                             time.sleep(wait_between_commands)
 
-                            self.invoke_shell.send(f"{next_command}\n".encode("utf-8"))
+                            shell.send(f"{next_command}\n".encode("utf-8"))
 
                             # 安全日志记录
                             safe_next_command = self._mask_sensitive_info(
@@ -341,16 +380,18 @@ class SSHConnection:
                             cleaned_output = self._clean_command_output(
                                 current_output, last_cmd
                             )
-                            
+
                             # 检查是否为敏感命令
-                            is_sensitive = self._is_sensitive_command(last_cmd, command_list, current_command_index)
-                            
+                            is_sensitive = self._is_sensitive_command(
+                                last_cmd, command_list, current_command_index
+                            )
+
                             command_results.append(
                                 CommandResult(
                                     command=last_cmd,
                                     output=cleaned_output,
                                     index=current_command_index,
-                                    is_sensitive=is_sensitive
+                                    is_sensitive=is_sensitive,
                                 )
                             )
                             SSH_LOGGER.debug("所有命令执行完成")
@@ -358,7 +399,7 @@ class SSHConnection:
 
                 else:
                     time.sleep(0.1)
-                    
+
         except Exception as e:
             error_message = f"命令执行过程中发生异常: {e}"
             SSH_LOGGER.error(error_message)
@@ -366,7 +407,7 @@ class SSHConnection:
 
         # 构建结果对象
         execution_time = time.time() - start_time
-        
+
         # 创建命令到输出的映射字典
         command_outputs = {}
         for result in command_results:
@@ -389,7 +430,7 @@ class SSHConnection:
         SSH_LOGGER.info(
             f"已执行交互命令序列: {safe_command_summary} 在 {self.hostname} (用时: {execution_time:.2f}s)"
         )
-        
+
         return InteractiveCommandResult(
             success=execution_successful,
             commands=command_list,
@@ -397,8 +438,22 @@ class SSHConnection:
             command_outputs=command_outputs,
             formatted_output=formatted_output,
             execution_time=execution_time,
-            error_message=error_message
+            error_message=error_message,
         )
+
+    def execute_hbase_command(
+        self, command: str, timeout: int = 300
+    ) -> SingleCommandResult:  # type: ignore
+        """执行 HBase shell 命令并返回结构化结果s
+        由于 Hbase 命令需要先进入 HBase shell 环境，然后一直在 HBase shell 中执行命令，所以不能采用 execute_command 这样的单条命令执行输出与清空的机制
+
+        Args:
+            command: 要执行的 HBase shell 命令
+            timeout: 命令执行超时时间，默认为 300 秒
+        Returns:
+            SingleCommandResult: 包含执行结果的结构化对象
+        """
+        pass
 
     def _mask_sensitive_info(
         self, text: str, command_context: Optional[list] = None, current_index: int = -1
@@ -445,17 +500,19 @@ class SSHConnection:
             r"hbase\(main\):\d+:\d+>\s*$",  # HBase shell 提示符
             r"hbase\(main\):\d+:\d+>$",  # HBase shell 提示符
             r".*@.*:.+[$#]\s*$",  # sudo后的提示符
-            r".*@.*:.+[$#]$",     # sudo后的提示符
+            r".*@.*:.+[$#]$",  # sudo后的提示符
         ]
 
         # 添加当前命令到跳过列表（但不包括可能的密码）
         if command.strip() and " " in command:  # 只跳过包含空格的命令行
             skip_patterns.append(re.escape(command.strip()))
-            
+
         # 对于密码输入，特殊处理
         if command.strip() and " " not in command.strip():
             # 可能是密码，移除echo关闭和密码相关提示
-            lines = [l for l in lines if not any(x in l for x in ["password", "[sudo]"])]
+            lines = [
+                l for l in lines if not any(x in l for x in ["password", "[sudo]"])
+            ]
 
         for line in lines:
             should_skip = False
@@ -501,26 +558,30 @@ class SSHConnection:
 
         return "\n".join(formatted_output)
 
-    def _wait_for_shell_ready(self, timeout: int = 5) -> None:
+    def _wait_for_shell_ready(
+        self, timeout: int = 5, shell: Optional[paramiko.Channel] = None
+    ) -> None:
         """等待 shell 准备就绪并清空初始输出"""
+        if not shell:
+            shell = self.invoke_shell
         start_time = time.time()
-        if not self.invoke_shell:
+        if not shell:
             SSH_LOGGER.error("SSH 连接未建立，请先调用 connect() 方法")
             return
 
         while time.time() - start_time < timeout:
-            if self.invoke_shell.recv_ready():
+            if shell.recv_ready():
                 # 读取并丢弃初始输出
-                self.invoke_shell.recv(1024)
+                shell.recv(1024)
             else:
                 # 发送一个简单命令来确认 shell 准备就绪
-                self.invoke_shell.send("echo ready\n".encode("utf-8"))
+                shell.send("echo ready\n".encode("utf-8"))
                 time.sleep(0.5)
 
                 # 检查是否收到回应
                 ready_output = ""
-                while self.invoke_shell.recv_ready():
-                    ready_output += self.invoke_shell.recv(1024).decode("utf-8")
+                while shell.recv_ready():
+                    ready_output += shell.recv(1024).decode("utf-8")
 
                 if "ready" in ready_output:
                     SSH_LOGGER.debug("Shell 已准备就绪")
@@ -528,14 +589,11 @@ class SSHConnection:
 
             time.sleep(0.1)
 
-    def close(self) -> None:
-        """Close the SSH connection."""
-        if self.client:
-            self.client.close()
-            SSH_LOGGER.info(f"已关闭到 {self.hostname} 的 SSH 连接")
-
     def _is_sensitive_command(
-        self, command: str, command_context: Optional[list] = None, current_index: int = -1
+        self,
+        command: str,
+        command_context: Optional[list] = None,
+        current_index: int = -1,
     ) -> bool:
         """检测是否为敏感命令（如密码输入）
 
@@ -551,10 +609,16 @@ class SSHConnection:
         # 只有一种情况需要掩码：sudo 命令后的密码输入
         if command_context and current_index > 0:
             prev_command = command_context[current_index - 1].strip().lower()
-            
+
             # 如果前一个命令是 sudo 开头的命令，当前命令就是密码
             if prev_command.startswith("sudo "):
                 return True
 
         # 其他所有情况都不需要掩码
         return False
+
+    def close(self) -> None:
+        """Close the SSH connection."""
+        if self.client:
+            self.client.close()
+            SSH_LOGGER.info(f"已关闭到 {self.hostname} 的 SSH 连接")
