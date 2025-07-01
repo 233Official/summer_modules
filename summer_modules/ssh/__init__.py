@@ -495,8 +495,8 @@ class SSHConnection:
         result = self.execute_interactive_commands(
             commands=[command],
             timeout=timeout,
-            wait_for_ready=False,  # HBase shell 已经在连接时准备好了
-            buffer_size=81920,  # 使用大些的缓冲区大小
+            wait_for_ready=True,
+            buffer_size=8192,  # 使用大些的缓冲区大小
             shell=self.hbase_shell,  # 使用 HBase shell
         )
         if not result or not result.success:
@@ -647,6 +647,7 @@ class SSHConnection:
                 ready_output = ""
                 while shell.recv_ready():
                     ready_output += shell.recv(1024).decode("utf-8")
+                    SSH_LOGGER.debug(f"接收到初始输出: {ready_output.strip()}")
 
                 if "ready" in ready_output:
                     SSH_LOGGER.debug("Shell 已准备就绪")
@@ -683,7 +684,33 @@ class SSHConnection:
         return False
 
     def close(self) -> None:
-        """Close the SSH connection."""
+        """关闭 SSH 连接和所有相关的 Channel"""
+        # 首先关闭 HBase shell channel
+        if self.hbase_shell:
+            try:
+                self.hbase_shell.close()
+                SSH_LOGGER.debug("已关闭 HBase shell channel")
+            except Exception as e:
+                SSH_LOGGER.warning(f"关闭 HBase shell channel 时出错: {e}")
+            finally:
+                self.hbase_shell = None
+
+        # 关闭交互式 shell channel
+        if self.invoke_shell:
+            try:
+                self.invoke_shell.close()
+                SSH_LOGGER.debug("已关闭交互式 shell channel")
+            except Exception as e:
+                SSH_LOGGER.warning(f"关闭交互式 shell channel 时出错: {e}")
+            finally:
+                self.invoke_shell = None
+
+        # 最后关闭 SSH 客户端连接
         if self.client:
-            self.client.close()
-            SSH_LOGGER.info(f"已关闭到 {self.hostname} 的 SSH 连接")
+            try:
+                self.client.close()
+                SSH_LOGGER.info(f"已关闭到 {self.hostname} 的 SSH 连接")
+            except Exception as e:
+                SSH_LOGGER.error(f"关闭 SSH 连接时出错: {e}")
+            finally:
+                self.client = None
