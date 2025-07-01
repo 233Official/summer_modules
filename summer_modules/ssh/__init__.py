@@ -37,40 +37,7 @@ class SSHConnection:
         self.invoke_shell = self.client.invoke_shell()
         SSH_LOGGER.info(f"已连接到 {self.hostname} 的 SSH 服务器")
 
-    def execute_command(self, command: str, timeout: int = 30) -> Union[str, None]:
-        """执行单个命令并返回输出
-
-        Args:
-            command: 要执行的命令
-            timeout: 命令执行超时时间，默认为 30 秒
-        Returns:
-            命令输出的字符串，如果执行失败则返回 None
-        """
-        if not self.client:
-            SSH_LOGGER.error("SSH 连接未建立，请先调用 connect() 方法")
-            return None
-
-        try:
-            start_time = time.time()
-            stdin, stdout, stderr = self.client.exec_command(command, timeout=timeout)
-            exit_status = stdout.channel.recv_exit_status()
-
-            output = stdout.read().decode("utf-8")
-            error = stderr.read().decode("utf-8")
-            execution_time = time.time() - start_time
-
-            if exit_status != 0:
-                SSH_LOGGER.error(f"命令执行失败 (退出码: {exit_status}): {error}")
-                return None
-
-            SSH_LOGGER.info(f"已执行命令: {command} 在 {self.hostname} (用时: {execution_time:.2f}s)")
-            return output.strip()
-
-        except Exception as e:
-            SSH_LOGGER.error(f"执行命令失败: {e}")
-            return None
-
-    def execute_command_structured(self, command: str, timeout: int = 30) -> SingleCommandResult:
+    def execute_command(self, command: str, timeout: int = 30) -> SingleCommandResult:
         """执行单个命令并返回结构化结果
 
         Args:
@@ -131,7 +98,7 @@ class SSHConnection:
                 error_message=error_msg
             )
 
-    def execute_interactive_command(
+    def execute_interactive_commands(
         self,
         commands: Union[str, list],
         timeout: int = 30,
@@ -432,40 +399,6 @@ class SSHConnection:
             execution_time=execution_time,
             error_message=error_message
         )
-
-    def execute_interactive_command_legacy(
-        self,
-        commands: Union[str, list],
-        timeout: int = 30,
-        wait_for_ready: bool = True,
-        wait_between_commands: float = 0.5,
-        buffer_size: int = 8192,
-    ) -> Union[str, None]:
-        """执行交互式命令序列（传统接口，返回字符串）
-        
-        这是为了向后兼容而保留的方法，新代码建议使用 execute_interactive_command 方法
-        
-        Args:
-            commands: 要执行的命令列表或单个命令字符串
-            timeout: 命令执行超时时间，默认为 30 秒
-            wait_for_ready: 是否等待 shell 准备就绪，默认为 True
-            wait_between_commands: 每个命令之间的等待时间，默认为 0.5 秒
-            buffer_size: 数据读取缓冲区大小，默认为 8192 字节
-        Returns:
-            命令输出的格式化字符串，如果执行失败则返回 None
-        """
-        result = self.execute_interactive_command(
-            commands=commands,
-            timeout=timeout,
-            wait_for_ready=wait_for_ready,
-            wait_between_commands=wait_between_commands,
-            buffer_size=buffer_size
-        )
-        
-        if result is None or not result.success:
-            return None
-            
-        return result.formatted_output
 
     def _mask_sensitive_info(
         self, text: str, command_context: Optional[list] = None, current_index: int = -1
