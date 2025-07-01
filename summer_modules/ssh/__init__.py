@@ -423,7 +423,7 @@ class SSHConnection:
                     SSH_LOGGER.debug(
                         "当前没有可读取的数据，可能是命令正在执行中或等待输入"
                     )
-                    time.sleep(0.1)
+                    time.sleep(1)
 
         except Exception as e:
             error_message = f"命令执行过程中发生异常: {e}"

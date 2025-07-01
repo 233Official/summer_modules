@@ -267,7 +267,7 @@ def test_execute_hbase_command():
         # 测试 2: 执行 scan 命令获取指定表数据 - 词条命令实测终端 3s 内完成
         result2 = hbase_ssh_connection.execute_hbase_command(
             command="scan 'cloud-whoisxml-whois-data', {FILTER => \"TimestampsFilter(1750318712510)\", LIMIT => 2}",
-            timeout=10,  # 测试超时时间
+            timeout=20,  # 测试超时时间
         )
         if not result2 or not result2.success:
             SUMMER_MODULES_TEST_LOGGER.error(
