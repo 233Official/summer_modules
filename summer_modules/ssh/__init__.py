@@ -1,0 +1,627 @@
+from pathlib import Path
+from summer_modules.logger import init_and_get_logger
+from typing import Union, Optional, List
+import paramiko
+import time
+import re
+from .ssh_model import InteractiveCommandResult, CommandResult, SingleCommandResult
+
+CURRENT_DIR = Path(__file__).parent.resolve()
+SSH_LOGGER = init_and_get_logger(current_dir=CURRENT_DIR, logger_name="ssh_logger")
+
+
+class SSHConnection:
+    def __init__(
+        self, hostname: str, username: str, password: str, port: int = 22
+    ) -> None:
+        self.hostname = hostname
+        self.username = username
+        self.password = password
+        self.port = port
+        self.client: Optional[paramiko.SSHClient] = None
+        self.invoke_shell: Optional[paramiko.Channel] = None
+        SSH_LOGGER.info(f"SSH connection initialized for {self.hostname}")
+
+    def connect(self) -> None:
+        """建立 SSH 连接"""
+        self.client = paramiko.SSHClient()
+        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.client.connect(
+            hostname=self.hostname,
+            username=self.username,
+            password=self.password,
+            port=self.port,
+            look_for_keys=False,
+            allow_agent=False,
+        )
+        self.invoke_shell = self.client.invoke_shell()
+        SSH_LOGGER.info(f"已连接到 {self.hostname} 的 SSH 服务器")
+
+    def execute_command(self, command: str, timeout: int = 30) -> Union[str, None]:
+        """执行单个命令并返回输出
+
+        Args:
+            command: 要执行的命令
+            timeout: 命令执行超时时间，默认为 30 秒
+        Returns:
+            命令输出的字符串，如果执行失败则返回 None
+        """
+        if not self.client:
+            SSH_LOGGER.error("SSH 连接未建立，请先调用 connect() 方法")
+            return None
+
+        try:
+            start_time = time.time()
+            stdin, stdout, stderr = self.client.exec_command(command, timeout=timeout)
+            exit_status = stdout.channel.recv_exit_status()
+
+            output = stdout.read().decode("utf-8")
+            error = stderr.read().decode("utf-8")
+            execution_time = time.time() - start_time
+
+            if exit_status != 0:
+                SSH_LOGGER.error(f"命令执行失败 (退出码: {exit_status}): {error}")
+                return None
+
+            SSH_LOGGER.info(f"已执行命令: {command} 在 {self.hostname} (用时: {execution_time:.2f}s)")
+            return output.strip()
+
+        except Exception as e:
+            SSH_LOGGER.error(f"执行命令失败: {e}")
+            return None
+
+    def execute_command_structured(self, command: str, timeout: int = 30) -> SingleCommandResult:
+        """执行单个命令并返回结构化结果
+
+        Args:
+            command: 要执行的命令
+            timeout: 命令执行超时时间，默认为 30 秒
+        Returns:
+            SingleCommandResult: 包含执行结果的结构化对象
+        """
+        start_time = time.time()
+        
+        if not self.client:
+            error_msg = "SSH 连接未建立，请先调用 connect() 方法"
+            SSH_LOGGER.error(error_msg)
+            return SingleCommandResult(
+                success=False,
+                command=command,
+                error_message=error_msg,
+                execution_time=time.time() - start_time
+            )
+
+        try:
+            stdin, stdout, stderr = self.client.exec_command(command, timeout=timeout)
+            exit_status = stdout.channel.recv_exit_status()
+
+            output = stdout.read().decode("utf-8")
+            error = stderr.read().decode("utf-8")
+            execution_time = time.time() - start_time
+
+            if exit_status != 0:
+                error_msg = f"命令执行失败 (退出码: {exit_status}): {error}"
+                SSH_LOGGER.error(error_msg)
+                return SingleCommandResult(
+                    success=False,
+                    command=command,
+                    output=output.strip(),
+                    exit_code=exit_status,
+                    execution_time=execution_time,
+                    error_message=error_msg
+                )
+
+            SSH_LOGGER.info(f"已执行命令: {command} 在 {self.hostname} (用时: {execution_time:.2f}s)")
+            return SingleCommandResult(
+                success=True,
+                command=command,
+                output=output.strip(),
+                exit_code=exit_status,
+                execution_time=execution_time
+            )
+
+        except Exception as e:
+            error_msg = f"执行命令失败: {e}"
+            SSH_LOGGER.error(error_msg)
+            execution_time = time.time() - start_time
+            return SingleCommandResult(
+                success=False,
+                command=command,
+                execution_time=execution_time,
+                error_message=error_msg
+            )
+
+    def execute_interactive_command(
+        self,
+        commands: Union[str, list],
+        timeout: int = 30,
+        wait_for_ready: bool = True,
+        wait_between_commands: float = 0.5,
+        buffer_size: int = 8192,
+    ) -> Union[InteractiveCommandResult, None]:
+        """执行交互式命令序列
+
+        Args:
+            commands: 要执行的命令列表或单个命令字符串
+            timeout: 命令执行超时时间，默认为 30 秒
+            wait_for_ready: 是否等待 shell 准备就绪，默认为 True
+            wait_between_commands: 每个命令之间的等待时间，默认为 0.5 秒
+            buffer_size: 数据读取缓冲区大小，默认为 8192 字节
+        Returns:
+            InteractiveCommandResult: 包含完整执行结果的结构化对象，如果执行失败则返回 None
+        """
+        start_time = time.time()
+        
+        if not self.invoke_shell:
+            error_msg = "SSH 连接未建立，请先调用 connect() 方法"
+            SSH_LOGGER.error(error_msg)
+            return InteractiveCommandResult(
+                success=False,
+                commands=[],
+                error_message=error_msg,
+                execution_time=time.time() - start_time
+            )
+
+        # 标准化输入为列表
+        if isinstance(commands, str):
+            command_list = [commands]
+        else:
+            command_list = commands.copy()
+
+        if not command_list:
+            error_msg = "命令列表不能为空"
+            SSH_LOGGER.error(error_msg)
+            return InteractiveCommandResult(
+                success=False,
+                commands=[],
+                error_message=error_msg,
+                execution_time=time.time() - start_time
+            )
+
+        # 等待 shell 准备就绪
+        if wait_for_ready:
+            self._wait_for_shell_ready()
+
+        # 存储每个命令及其输出
+        command_results = []
+        current_command_index = 0
+        current_output = ""
+        command_output_started = False
+        execution_successful = True
+        error_message = None
+
+        # 发送第一个命令
+        first_command = command_list[0]
+        self.invoke_shell.send(f"{first_command}\n".encode("utf-8"))
+
+        # 安全日志记录：隐藏可能的密码
+        safe_command = self._mask_sensitive_info(
+            first_command, command_list, current_command_index
+        )
+        SSH_LOGGER.debug(f"发送命令 [{current_command_index}]: {safe_command}")
+
+        def is_prompt_detected(text: str) -> bool:
+            """检测是否出现了命令提示符"""
+            if not text.strip():
+                return False
+
+            last_line = text.strip().split("\n")[-1]
+            prompt_patterns = [
+                r".*[$#>]\s*$",
+                r".*[$#>]$",
+                r".*:\s*[$#>]\s*$",
+                r"\[.*\]\s*[$#>]\s*$",
+                # 新增 HBase Shell 提示符模式
+                r"hbase\(main\):\d+:\d+>\s*$",  # hbase(main):001:0>
+                r"hbase\(main\):\d+:\d+>$",  # hbase(main):001:0>
+                # 新增 sudo 命令执行后的提示符模式
+                r".*@.*:.+[$#]\s*$",  # username@hostname:/path#
+                r".*@.*:.+[$#]$",     # username@hostname:/path#
+                r"root@.*:.+[$#]\s*$", # root@hostname:/path#
+                r"root@.*:.+[$#]$",    # root@hostname:/path#
+            ]
+
+            for pattern in prompt_patterns:
+                if re.match(pattern, last_line):
+                    SSH_LOGGER.debug(
+                        f"检测到提示符模式: {pattern} in line: {last_line}"
+                    )
+                    return True
+                
+            # 针对 sudo 命令特殊处理：检查是否有任何常见的提示符特征
+            sudo_indicators = ["$", "#", ">", "@"]
+            if any(indicator in last_line for indicator in sudo_indicators) and (
+                ":" in last_line or "/" in last_line
+            ):
+                SSH_LOGGER.debug(f"检测到可能的 sudo 后提示符: {last_line}")
+                return True
+                
+            return False
+
+        def is_waiting_for_input(text: str) -> bool:
+            """检测是否在等待用户输入"""
+            last_line = text.strip().split("\n")[-1] if text.strip() else ""
+
+            # 常见的等待输入模式
+            input_patterns = [
+                r".*password.*:",  # 密码提示
+                r".*Password.*:",  # 密码提示（大写）
+                r".*\[sudo\].*:",  # sudo 密码提示
+                r".*\(y/n\).*",  # 确认提示
+                r".*\[Y/n\].*",  # 确认提示
+                r".*Enter.*:",  # 输入提示
+            ]
+
+            for pattern in input_patterns:
+                if re.search(pattern, last_line, re.IGNORECASE):
+                    SSH_LOGGER.debug(f"检测到输入等待模式: {pattern}")
+                    return True
+            return False
+
+        # 主循环
+        try:
+            while True:
+                # 对于 sudo 命令特殊处理
+                sudo_command_in_progress = False
+                if current_command_index > 0 and current_command_index < len(command_list):
+                    if command_list[current_command_index - 1].strip().startswith("sudo "):
+                        sudo_command_in_progress = True
+                        
+                # 超时检查，为 sudo 命令提供更宽松的超时处理
+                current_timeout = timeout * 2 if sudo_command_in_progress else timeout
+                if time.time() - start_time > current_timeout:
+                    error_message = f"命令执行超时，当前执行到第 {current_command_index + 1} 个命令"
+                    if sudo_command_in_progress:
+                        error_message += "（sudo 命令）"
+                    SSH_LOGGER.warning(error_message)
+                    execution_successful = False
+                    break
+
+                if self.invoke_shell.recv_ready():
+                    try:
+                        chunk = self.invoke_shell.recv(buffer_size).decode(
+                            "utf-8", errors="ignore"
+                        )
+                    except UnicodeDecodeError:
+                        SSH_LOGGER.warning("数据解码错误，跳过此数据块")
+                        continue
+
+                    if not chunk:  # 连接可能已断开
+                        error_message = "接收到空数据，连接可能已断开"
+                        SSH_LOGGER.warning(error_message)
+                        execution_successful = False
+                        break
+
+                    # 开始记录输出的逻辑
+                    if not command_output_started:
+                        if first_command.strip() in chunk:
+                            command_output_started = True
+                            cmd_index = chunk.find(first_command.strip())
+                            if cmd_index != -1:
+                                chunk = chunk[cmd_index:]
+                        else:
+                            continue
+
+                    current_output += chunk
+                    # SSH_LOGGER.debug(f"接收到数据块大小: {len(chunk)} 字节")
+                    SSH_LOGGER.debug(f"详细内容: {chunk.strip()}")
+
+                    # 检查是否需要发送下一个命令
+                    if current_command_index < len(command_list) - 1:
+                        # 检查是否等待输入或提示符就绪
+                        should_send_next = is_waiting_for_input(
+                            current_output
+                        ) or is_prompt_detected(current_output)
+                        
+                        # 特殊处理 sudo 命令：检查是否为密码输入后的结果
+                        if not should_send_next and current_command_index > 0:
+                            prev_cmd = command_list[current_command_index - 1]
+                            current_cmd = command_list[current_command_index]
+                            
+                            # 如果前一个命令是 sudo，当前是密码，并且有一定时间过去了
+                            if prev_cmd.startswith("sudo ") and " " not in current_cmd.strip():
+                                # 等待足够时间确保命令已经执行
+                                if time.time() - start_time > 1.0 and len(current_output) > 0:
+                                    # 检查输出中是否有表示命令执行结束的内容
+                                    output_lines = current_output.strip().split('\n')
+                                    if len(output_lines) >= 2 and not current_output.endswith("password for"):
+                                        SSH_LOGGER.debug(f"sudo 密码命令似乎已完成，检测到 {len(output_lines)} 行输出")
+                                        should_send_next = True
+                        
+                        if should_send_next:
+                            # 保存当前命令的输出
+                            current_cmd = command_list[current_command_index]
+                            cleaned_output = self._clean_command_output(
+                                current_output, current_cmd
+                            )
+                            
+                            # 检查是否为敏感命令
+                            is_sensitive = self._is_sensitive_command(current_cmd, command_list, current_command_index)
+                            
+                            command_results.append(
+                                CommandResult(
+                                    command=current_cmd,
+                                    output=cleaned_output,
+                                    index=current_command_index,
+                                    is_sensitive=is_sensitive
+                                )
+                            )
+
+                            # 准备下一个命令
+                            current_command_index += 1
+                            next_command = command_list[current_command_index]
+                            current_output = ""  # 重置输出缓冲区
+
+                            # 等待一小段时间确保提示完全显示
+                            time.sleep(wait_between_commands)
+
+                            self.invoke_shell.send(f"{next_command}\n".encode("utf-8"))
+
+                            # 安全日志记录
+                            safe_next_command = self._mask_sensitive_info(
+                                next_command, command_list, current_command_index
+                            )
+                            SSH_LOGGER.debug(
+                                f"发送命令 [{current_command_index}]: {safe_next_command}"
+                            )
+                            continue
+
+                    # 如果所有命令都已发送，检查是否完成
+                    if current_command_index >= len(command_list) - 1:
+                        if is_prompt_detected(current_output):
+                            # 保存最后一个命令的输出
+                            last_cmd = command_list[current_command_index]
+                            cleaned_output = self._clean_command_output(
+                                current_output, last_cmd
+                            )
+                            
+                            # 检查是否为敏感命令
+                            is_sensitive = self._is_sensitive_command(last_cmd, command_list, current_command_index)
+                            
+                            command_results.append(
+                                CommandResult(
+                                    command=last_cmd,
+                                    output=cleaned_output,
+                                    index=current_command_index,
+                                    is_sensitive=is_sensitive
+                                )
+                            )
+                            SSH_LOGGER.debug("所有命令执行完成")
+                            break
+
+                else:
+                    time.sleep(0.1)
+                    
+        except Exception as e:
+            error_message = f"命令执行过程中发生异常: {e}"
+            SSH_LOGGER.error(error_message)
+            execution_successful = False
+
+        # 构建结果对象
+        execution_time = time.time() - start_time
+        
+        # 创建命令到输出的映射字典
+        command_outputs = {}
+        for result in command_results:
+            # 对于敏感命令，不在字典中暴露其内容
+            if result.is_sensitive:
+                command_outputs[result.command] = "***"
+            else:
+                command_outputs[result.command] = result.output
+
+        # 格式化最终输出
+        formatted_output = self._format_command_results(command_results)
+
+        # 安全日志记录
+        safe_command_summary = " -> ".join(
+            [
+                self._mask_sensitive_info(cmd, command_list, i)
+                for i, cmd in enumerate(command_list)
+            ]
+        )
+        SSH_LOGGER.info(
+            f"已执行交互命令序列: {safe_command_summary} 在 {self.hostname} (用时: {execution_time:.2f}s)"
+        )
+        
+        return InteractiveCommandResult(
+            success=execution_successful,
+            commands=command_list,
+            command_results=command_results,
+            command_outputs=command_outputs,
+            formatted_output=formatted_output,
+            execution_time=execution_time,
+            error_message=error_message
+        )
+
+    def execute_interactive_command_legacy(
+        self,
+        commands: Union[str, list],
+        timeout: int = 30,
+        wait_for_ready: bool = True,
+        wait_between_commands: float = 0.5,
+        buffer_size: int = 8192,
+    ) -> Union[str, None]:
+        """执行交互式命令序列（传统接口，返回字符串）
+        
+        这是为了向后兼容而保留的方法，新代码建议使用 execute_interactive_command 方法
+        
+        Args:
+            commands: 要执行的命令列表或单个命令字符串
+            timeout: 命令执行超时时间，默认为 30 秒
+            wait_for_ready: 是否等待 shell 准备就绪，默认为 True
+            wait_between_commands: 每个命令之间的等待时间，默认为 0.5 秒
+            buffer_size: 数据读取缓冲区大小，默认为 8192 字节
+        Returns:
+            命令输出的格式化字符串，如果执行失败则返回 None
+        """
+        result = self.execute_interactive_command(
+            commands=commands,
+            timeout=timeout,
+            wait_for_ready=wait_for_ready,
+            wait_between_commands=wait_between_commands,
+            buffer_size=buffer_size
+        )
+        
+        if result is None or not result.success:
+            return None
+            
+        return result.formatted_output
+
+    def _mask_sensitive_info(
+        self, text: str, command_context: Optional[list] = None, current_index: int = -1
+    ) -> str:
+        """隐藏敏感信息，如密码
+
+        Args:
+            text: 要检查的文本
+            command_context: 完整的命令序列上下文
+            current_index: 当前命令在序列中的索引
+        """
+        # 检查是否是 sudo 命令后的密码输入
+        if command_context and current_index > 0:
+            prev_command = command_context[current_index - 1].strip().lower()
+            current_text = text.strip()
+
+            # 如果前一个命令包含 sudo，且当前是简单的字符串（可能是密码）
+            if (
+                prev_command.startswith("sudo ")
+                and current_text
+                and " " not in current_text
+                and len(current_text) > 0
+            ):
+                return "***"
+
+        # 其他情况都不掩码
+        return text
+
+    def _clean_command_output(self, output: str, command: str) -> str:
+        """清理单个命令的输出"""
+        if not output:
+            return ""
+
+        lines = output.split("\n")
+        result_lines = []
+
+        # 需要跳过的模式
+        skip_patterns = [
+            r".*[$#>]\s*$",  # 提示符
+            r".*\[sudo\] password.*",  # sudo 密码提示
+            r".*password.*:.*",  # 一般密码提示
+            r".*Password.*:.*",  # 密码提示
+            r"^\s*$",  # 空行
+            r"hbase\(main\):\d+:\d+>\s*$",  # HBase shell 提示符
+            r"hbase\(main\):\d+:\d+>$",  # HBase shell 提示符
+            r".*@.*:.+[$#]\s*$",  # sudo后的提示符
+            r".*@.*:.+[$#]$",     # sudo后的提示符
+        ]
+
+        # 添加当前命令到跳过列表（但不包括可能的密码）
+        if command.strip() and " " in command:  # 只跳过包含空格的命令行
+            skip_patterns.append(re.escape(command.strip()))
+            
+        # 对于密码输入，特殊处理
+        if command.strip() and " " not in command.strip():
+            # 可能是密码，移除echo关闭和密码相关提示
+            lines = [l for l in lines if not any(x in l for x in ["password", "[sudo]"])]
+
+        for line in lines:
+            should_skip = False
+
+            for pattern in skip_patterns:
+                if re.search(pattern, line, re.IGNORECASE):
+                    should_skip = True
+                    break
+
+            if not should_skip and line.strip():
+                result_lines.append(line.strip())
+
+        return "\n".join(result_lines)
+
+    def _format_command_results(self, command_results: List[CommandResult]) -> str:
+        """格式化命令执行结果，为每个命令添加清晰的分割"""
+        if not command_results:
+            return ""
+
+        formatted_output = []
+        separator = "=" * 60
+
+        for i, result in enumerate(command_results):
+            # 添加命令标题
+            safe_command = self._mask_sensitive_info(
+                result.command, [r.command for r in command_results], result.index
+            )
+            formatted_output.append(f"执行命令 [{result.index + 1}]: {safe_command}")
+            formatted_output.append("-" * 40)
+
+            # 添加命令输出
+            if result.output.strip():
+                # 敏感命令需要隐藏, 但是输出无需隐藏
+                formatted_output.append(result.output)
+            else:
+                formatted_output.append("(无输出)")
+
+            # 添加分割线（除了最后一个命令）
+            if i < len(command_results) - 1:
+                formatted_output.append("")
+                formatted_output.append(separator)
+                formatted_output.append("")
+
+        return "\n".join(formatted_output)
+
+    def _wait_for_shell_ready(self, timeout: int = 5) -> None:
+        """等待 shell 准备就绪并清空初始输出"""
+        start_time = time.time()
+        if not self.invoke_shell:
+            SSH_LOGGER.error("SSH 连接未建立，请先调用 connect() 方法")
+            return
+
+        while time.time() - start_time < timeout:
+            if self.invoke_shell.recv_ready():
+                # 读取并丢弃初始输出
+                self.invoke_shell.recv(1024)
+            else:
+                # 发送一个简单命令来确认 shell 准备就绪
+                self.invoke_shell.send("echo ready\n".encode("utf-8"))
+                time.sleep(0.5)
+
+                # 检查是否收到回应
+                ready_output = ""
+                while self.invoke_shell.recv_ready():
+                    ready_output += self.invoke_shell.recv(1024).decode("utf-8")
+
+                if "ready" in ready_output:
+                    SSH_LOGGER.debug("Shell 已准备就绪")
+                    break
+
+            time.sleep(0.1)
+
+    def close(self) -> None:
+        """Close the SSH connection."""
+        if self.client:
+            self.client.close()
+            SSH_LOGGER.info(f"已关闭到 {self.hostname} 的 SSH 连接")
+
+    def _is_sensitive_command(
+        self, command: str, command_context: Optional[list] = None, current_index: int = -1
+    ) -> bool:
+        """检测是否为敏感命令（如密码输入）
+
+        设计思路：只有 sudo xxx 后的命令必定是 password，password 需要掩码，其他情况都不需要掩码
+
+        Args:
+            command: 要检查的命令
+            command_context: 完整的命令序列上下文
+            current_index: 当前命令在序列中的索引
+        Returns:
+            bool: 如果是敏感命令返回 True，否则返回 False
+        """
+        # 只有一种情况需要掩码：sudo 命令后的密码输入
+        if command_context and current_index > 0:
+            prev_command = command_context[current_index - 1].strip().lower()
+            
+            # 如果前一个命令是 sudo 开头的命令，当前命令就是密码
+            if prev_command.startswith("sudo "):
+                return True
+
+        # 其他所有情况都不需要掩码
+        return False

@@ -32,6 +32,7 @@ matplotlib = "^3.10.3"
 tzdata = "^2025.2"
 prefect = "^3.4.6"
 thrift = "^0.22.0"
+paramiko = "^3.5.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0.0"

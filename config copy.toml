@@ -16,3 +16,9 @@ host = "localhost"
 port = 8080
 username = "hbase"
 password = "hbase"
+
+[ssh]
+hostname = "localhost"
+username = "root"
+password = "root"
+port = 22
