@@ -310,14 +310,16 @@ class SSHConnection:
                         data = shell.recv(buffer_size)
                         if data:
                             chunk += data.decode("utf-8", errors="ignore")
-                            
+
                             # 继续读取剩余数据，直到没有更多数据可读
                             while shell.recv_ready():
                                 additional_data = shell.recv(buffer_size)
                                 if not additional_data:
                                     break
-                                chunk += additional_data.decode("utf-8", errors="ignore")
-                        
+                                chunk += additional_data.decode(
+                                    "utf-8", errors="ignore"
+                                )
+
                     except UnicodeDecodeError:
                         SSH_LOGGER.warning("数据解码错误，跳过此数据块")
                         continue
@@ -513,32 +515,57 @@ class SSHConnection:
 
         start_time = time.time()
 
-        # 调用 execute_interactive_commands 方法执行 HBase shell 命令
-        result = self.execute_interactive_commands(
-            commands=[command],
-            timeout=timeout,
-            wait_for_ready=True,
-            shell=self.hbase_shell,  # 使用 HBase shell
-        )
-        if not result or not result.success:
-            error_msg = f"HBase shell 命令执行失败: {result.error_message if result else '未知错误'}"
-            SSH_LOGGER.error(error_msg)
-            return SingleCommandResult(
-                success=False,
-                command=command,
-                error_message=error_msg,
-                execution_time=time.time() - start_time,
-            )
+        # 调用 execute_interactive_commands 方法执行 Hbase shell 命令存在无法解决的严重问题, 放弃使用, 这里仅做保留归档
+        # # 调用 execute_interactive_commands 方法执行 HBase shell 命令
+        # result = self.execute_interactive_commands(
+        #     commands=[command],
+        #     timeout=timeout,
+        #     wait_for_ready=True,
+        #     shell=self.hbase_shell,  # 使用 HBase shell
+        # )
+        # if not result or not result.success:
+        #     error_msg = f"HBase shell 命令执行失败: {result.error_message if result else '未知错误'}"
+        #     SSH_LOGGER.error(error_msg)
+        #     return SingleCommandResult(
+        #         success=False,
+        #         command=command,
+        #         error_message=error_msg,
+        #         execution_time=time.time() - start_time,
+        #     )
         # 如果执行成功，返回结果
-        SSH_LOGGER.info(
-            f"已执行 HBase shell 命令: {command} 在 {self.hostname} (用时: {result.execution_time:.2f}s)"
+        # SSH_LOGGER.info(
+        #     f"已执行 HBase shell 命令: {command} 在 {self.hostname} (用时: {result.execution_time:.2f}s)"
+        # )
+
+        # 直接使用 self.hbase_shell 执行命令
+        self.hbase_shell.send(f"{command}\n".encode("utf-8"))
+        SSH_LOGGER.debug(f"发送 HBase shell 命令: {command}")
+
+        # 等待命令执行完成
+        output = ""
+        while True:
+            if self.hbase_shell.recv_ready():
+                chunk = self.hbase_shell.recv(1024).decode("utf-8", errors="ignore")
+                output += chunk
+                SSH_LOGGER.debug(f"接收到 HBase shell 输出: {chunk.strip()}")
+            else:
+                # 检查是否有类似 hbase(main):001:0> 的提示符
+                if re.search(r"hbase\(main\):\d+:\d+>\s*$", output):
+                    SSH_LOGGER.debug("检测到 HBase shell 提示符，命令执行完成")
+                    break
+            time.sleep(0.1)
+
+        execution_time = time.time() - start_time
+        SSH_LOGGER.debug(
+            f"已执行 HBase shell 命令: {command}，输出: {output.strip()}, 用时: {execution_time:.2f}s"
         )
+
         return SingleCommandResult(
             success=True,
             command=command,
-            output=result.formatted_output,
+            output=output.strip(),
             exit_code=0,  # HBase shell 命令通常没有退出码
-            execution_time=time.time() - start_time,
+            execution_time=execution_time,
         )
 
     def _mask_sensitive_info(
