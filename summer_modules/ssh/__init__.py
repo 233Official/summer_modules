@@ -188,7 +188,7 @@ class SSHConnection:
 
         # 等待 shell 准备就绪
         if wait_for_ready:
-            self._wait_for_shell_ready()
+            self._wait_for_shell_ready(buffer_size=buffer_size)
 
         # 存储每个命令及其输出
         command_results = []
@@ -630,7 +630,10 @@ class SSHConnection:
         return "\n".join(formatted_output)
 
     def _wait_for_shell_ready(
-        self, timeout: int = 5, shell: Optional[paramiko.Channel] = None
+        self,
+        timeout: int = 5,
+        buffer_size: int = 8192,
+        shell: Optional[paramiko.Channel] = None,
     ) -> None:
         """等待 shell 准备就绪并清空初始输出"""
         if not shell:
@@ -643,7 +646,7 @@ class SSHConnection:
         while time.time() - start_time < timeout:
             if shell.recv_ready():
                 # 读取并丢弃初始输出
-                shell.recv(1024)
+                shell.recv(buffer_size)
             else:
                 # 发送一个简单命令来确认 shell 准备就绪
                 shell.send("echo ready\n".encode("utf-8"))
@@ -652,7 +655,7 @@ class SSHConnection:
                 # 检查是否收到回应
                 ready_output = ""
                 while shell.recv_ready():
-                    ready_output += shell.recv(1024).decode("utf-8")
+                    ready_output += shell.recv(buffer_size).decode("utf-8")
                     SSH_LOGGER.debug(f"接收到初始输出: {ready_output.strip()}")
 
                 if "ready" in ready_output:
