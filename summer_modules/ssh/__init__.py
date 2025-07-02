@@ -219,10 +219,10 @@ class SSHConnection:
                 r".*[$#>]$",
                 r".*:\s*[$#>]\s*$",
                 r"\[.*\]\s*[$#>]\s*$",
-                # 新增 HBase Shell 提示符模式
+                # HBase Shell 提示符模式
                 r"hbase\(main\):\d+:\d+>\s*$",  # hbase(main):001:0>
                 r"hbase\(main\):\d+:\d+>$",  # hbase(main):001:0>
-                # 新增 sudo 命令执行后的提示符模式
+                # sudo 命令执行后的提示符模式
                 r".*@.*:.+[$#]\s*$",  # username@hostname:/path#
                 r".*@.*:.+[$#]$",  # username@hostname:/path#
                 r"root@.*:.+[$#]\s*$",  # root@hostname:/path#
@@ -236,10 +236,16 @@ class SSHConnection:
                     )
                     return True
 
-            # 针对 sudo 命令特殊处理：检查是否有任何常见的提示符特征
-            sudo_indicators = ["$", "#", ">", "@"]
-            if any(indicator in last_line for indicator in sudo_indicators) and (
-                ":" in last_line or "/" in last_line
+            # 修改 sudo 命令特殊处理：更精确的检测
+            # 排除明显不是提示符的内容（如 URL、长文本等）
+            if (
+                "http://" not in last_line  # 排除 URL
+                and "https://" not in last_line
+                and len(last_line) < 100  # 排除过长的文本
+                and not last_line.startswith("SLF4J:")  # 排除 SLF4J 日志
+                and not "Class path" in last_line  # 排除类路径相关信息
+                and any(indicator in last_line for indicator in ["$", "#", ">", "@"])
+                and (":" in last_line or "/" in last_line)
             ):
                 SSH_LOGGER.debug(f"检测到可能的 sudo 后提示符: {last_line}")
                 return True
