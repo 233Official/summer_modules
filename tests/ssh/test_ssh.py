@@ -170,6 +170,21 @@ def test_execute_interactive_commands():
         )
         SUMMER_MODULES_TEST_LOGGER.info(f"  - 敏感命令输出: {result5.formatted_output}")
 
+        # 测试 6: 测试超长命令输出读取
+        long_command = "echo " + "a" * 10000  # 生成一个超长输出的命令
+        result6 = ssh_connection.execute_interactive_commands(
+            commands=[long_command],
+            timeout=30,  # 增加超时时间
+        )
+        assert result6 is not None, "超长命令执行返回 None"
+        SUMMER_MODULES_TEST_LOGGER.info(f"超长命令结构化结果:")
+        SUMMER_MODULES_TEST_LOGGER.info(f"  - 成功: {result6.success}")
+        SUMMER_MODULES_TEST_LOGGER.info(f"  - 命令数量: {result6.command_count}")
+        SUMMER_MODULES_TEST_LOGGER.info(f"  - 执行时间: {result6.execution_time:.2f}s")
+        SUMMER_MODULES_TEST_LOGGER.info(
+            f"  - 最后命令输出: {result6.get_last_command_output()}"
+        )
+
     except Exception as e:
         SUMMER_MODULES_TEST_LOGGER.error(f"结构化测试失败: {e}")
         raise e
@@ -219,8 +234,6 @@ def test_hbase_execute_interactive_command():
         ]
         result = hbase_ssh_connection.execute_interactive_commands(
             commands=commands,
-            # buffer_size=16384,  # 使用更大的缓冲区
-            buffer_size=1024,  # 使用更大的缓冲区
             timeout=60,  # 增加超时时间
         )
 
@@ -308,8 +321,8 @@ def test_execute_hbase_command():
 
 def main():
     # test_execute_command()
-    # test_execute_interactive_commands()
-    test_hbase_execute_interactive_command()
+    test_execute_interactive_commands()
+    # test_hbase_execute_interactive_command()
     # test_execute_hbase_command()
 
 

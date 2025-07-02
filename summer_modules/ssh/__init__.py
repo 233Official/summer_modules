@@ -140,7 +140,7 @@ class SSHConnection:
         timeout: int = 30,
         wait_for_ready: bool = True,
         wait_between_commands: float = 0.5,
-        buffer_size: int = 8192,
+        buffer_size: int = 1024,
         shell: Optional[paramiko.Channel] = None,
     ) -> Union[InteractiveCommandResult, None]:
         """执行交互式命令序列
@@ -150,12 +150,15 @@ class SSHConnection:
             timeout: 命令执行超时时间，默认为 30 秒
             wait_for_ready: 是否等待 shell 准备就绪，默认为 True
             wait_between_commands: 每个命令之间的等待时间，默认为 0.5 秒
-            buffer_size: 数据读取缓冲区大小，默认为 8192 字节
+            buffer_size: 数据读取缓冲区大小，默认为 1024 字节。
+                        注意：由于底层SSH协议和paramiko库的限制，实际每次接收的数据量通常为1024字节，
+                        设置更大的值目前不会提升性能，但保留此参数以备将来优化使用。
             shell: 可选的 paramiko Channel 对象，如果未提供则使用 invoke_shell
         Returns:
             InteractiveCommandResult: 包含完整执行结果的结构化对象，如果执行失败则返回 None
         """
         start_time = time.time()
+        # 移除内部固定的 buffer_size 赋值，直接使用参数值
         if not shell:
             SSH_LOGGER.debug("未提供 shell, 使用 self.invoke_shell")
             shell = self.invoke_shell
@@ -300,8 +303,21 @@ class SSHConnection:
                     break
 
                 if shell.recv_ready():
+                    # 连续读取所有可用数据，不只是单次 recv
+                    chunk = ""
                     try:
-                        chunk = shell.recv(buffer_size).decode("utf-8", errors="ignore")
+                        # 第一次读取
+                        data = shell.recv(buffer_size)
+                        if data:
+                            chunk += data.decode("utf-8", errors="ignore")
+                            
+                            # 继续读取剩余数据，直到没有更多数据可读
+                            while shell.recv_ready():
+                                additional_data = shell.recv(buffer_size)
+                                if not additional_data:
+                                    break
+                                chunk += additional_data.decode("utf-8", errors="ignore")
+                        
                     except UnicodeDecodeError:
                         SSH_LOGGER.warning("数据解码错误，跳过此数据块")
                         continue
@@ -502,7 +518,6 @@ class SSHConnection:
             commands=[command],
             timeout=timeout,
             wait_for_ready=True,
-            buffer_size=8192,  # 使用大些的缓冲区大小
             shell=self.hbase_shell,  # 使用 HBase shell
         )
         if not result or not result.success:
