@@ -132,7 +132,7 @@ class HBaseAPI:
             raise
 
     @retry(max_retries=3, delay=5, exceptions=(Exception,))
-    def create_table(self, table_name: str, column_families: List[str]) -> bool:
+    def create_table(self, table_name: str, column_families: list[str]) -> bool:
         """创建 HBase 表
 
         Args:
@@ -194,7 +194,7 @@ class HBaseAPI:
         start_timestamp: int,
         end_timestamp: int,
         include_timestamp: bool = True,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """获取指定表在指定时间范围内的数据
         务必注意，这个方法会进行全表扫描，可能会消耗大量资源和时间。
 
@@ -208,7 +208,7 @@ class HBaseAPI:
             include_timestamp: 是否在结果中包含时间戳信息，默认为 True
 
         Returns:
-            List[Dict[str, Any]]: 指定时间范围内的所有数据列表
+            list[dict[str, Any]]: 指定时间范围内的所有数据列表
         """
         try:
             if not self.table_exists(table_name):
@@ -316,7 +316,7 @@ class HBaseAPI:
     @retry(max_retries=3, delay=5, exceptions=(Exception,))
     def get_all_data(
         self, table_name: str, include_timestamp: bool = False
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """获取指定表的所有数据
         务必注意，这个方法会进行全表扫描，可能会消耗大量资源和时间。
 
@@ -325,7 +325,7 @@ class HBaseAPI:
             include_timestamp: 是否包含时间戳
 
         Returns:
-            List[Dict[str, Any]]: 所有数据的列表
+            list[dict[str, Any]]: 所有数据的列表
         """
         try:
             if not self.table_exists(table_name):
@@ -384,7 +384,7 @@ class HBaseAPI:
     @retry(max_retries=3, delay=5, exceptions=(Exception,))
     def get_row(
         self, table_name: str, row_key: str, include_timestamp: bool = False
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """获取指定行的数据
 
         Args:
@@ -393,7 +393,7 @@ class HBaseAPI:
             include_timestamp: 是否包含时间戳
 
         Returns:
-            Optional[Dict[str, Any]]: 行数据，如果不存在则返回 None
+            Optional[dict[str, Any]]: 行数据，如果不存在则返回 None
         """
         try:
             if not self.table_exists(table_name):
@@ -463,7 +463,7 @@ class HBaseAPI:
         start_row: str,
         stop_row: str,
         include_timestamp: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """获取指定行范围的数据
 
         Args:
@@ -473,7 +473,7 @@ class HBaseAPI:
             include_timestamp: 是否包含时间戳
 
         Returns:
-            List[Dict[str, Any]]: 行数据列表
+            list[dict[str, Any]]: 行数据列表
         """
         try:
             if not self.table_exists(table_name):
@@ -538,8 +538,8 @@ class HBaseAPI:
 
     @retry(max_retries=3, delay=5, exceptions=(Exception,))
     def get_columns(
-        self, table_name: str, columns: List[str], include_timestamp: bool = False
-    ) -> List[Dict[str, Any]]:
+        self, table_name: str, columns: list[str], include_timestamp: bool = False
+    ) -> list[dict[str, Any]]:
         """获取指定列的数据
 
         Args:
@@ -548,7 +548,7 @@ class HBaseAPI:
             include_timestamp: 是否包含时间戳
 
         Returns:
-            List[Dict[str, Any]]: 数据列表
+            list[dict[str, Any]]: 数据列表
         """
         try:
             if not self.table_exists(table_name):
@@ -615,9 +615,9 @@ class HBaseAPI:
         self,
         table_name: str,
         row_key: str,
-        columns: List[str],
+        columns: list[str],
         include_timestamp: bool = False,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """获取指定行和列的数据
 
         Args:
@@ -627,7 +627,7 @@ class HBaseAPI:
             include_timestamp: 是否包含时间戳
 
         Returns:
-            Optional[Dict[str, Any]]: 行数据，如果不存在则返回 None
+            Optional[dict[str, Any]]: 行数据，如果不存在则返回 None
         """
         try:
             if not self.table_exists(table_name):
@@ -689,9 +689,9 @@ class HBaseAPI:
         table_name: str,
         start_row: str,
         stop_row: str,
-        columns: List[str],
+        columns: list[str],
         include_timestamp: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """获取指定行范围和列的数据
 
         Args:
@@ -702,7 +702,7 @@ class HBaseAPI:
             include_timestamp: 是否包含时间戳
 
         Returns:
-            List[Dict[str, Any]]: 行数据列表
+            list[dict[str, Any]]: 行数据列表
         """
         try:
             if not self.table_exists(table_name):
@@ -770,7 +770,7 @@ class HBaseAPI:
 
     @retry(max_retries=3, delay=5, exceptions=(Exception,))
     def put_row(
-        self, table_name: str, row_key: str, data: Dict[str, Dict[str, Any]]
+        self, table_name: str, row_key: str, data: dict[str, dict[str, Any]]
     ) -> bool:
         """写入一行数据
 
@@ -816,7 +816,7 @@ class HBaseAPI:
 
     @retry(max_retries=3, delay=5, exceptions=(Exception,))
     def put_rows(
-        self, table_name: str, rows_data: List[Tuple[str, Dict[str, Dict[str, Any]]]]
+        self, table_name: str, rows_data: list[tuple[str, dict[str, dict[str, Any]]]]
     ) -> bool:
         """批量写入多行数据
 
@@ -877,9 +877,9 @@ class HBaseAPI:
         start_timestamp: int,
         end_timestamp: int,
         row_key_prefix: Optional[str] = None,
-        columns: Optional[List[str]] = None,
+        columns: Optional[list[str]] = None,
         include_timestamp: bool = True,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """优化的时间范围查询方法
 
         这个方法提供了多种优化策略来减少全表扫描的性能影响(但是仍然不建议使用, 建议走下面的 SSHConnection 的方案)
@@ -899,7 +899,7 @@ class HBaseAPI:
             include_timestamp: 是否在结果中包含时间戳信息
 
         Returns:
-            List[Dict[str, Any]]: 过滤后的数据列表
+            list[dict[str, Any]]: 过滤后的数据列表
         """
         try:
             if not self.table_exists(table_name):
@@ -1098,7 +1098,7 @@ class HBaseAPI:
             - command: 执行的命令
             - row_count: 扫描到的行数
             - execution_time: 执行时间（秒）
-            - rows: List[HBaseRow]: 扫描到的行数据列表
+            - rows: list[HBaseRow]: 扫描到的行数据列表
         """
 
 
