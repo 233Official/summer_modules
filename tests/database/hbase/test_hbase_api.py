@@ -5,6 +5,8 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock, call
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+import time
+import logging
 
 from summer_modules.database.hbase.hbase_api import HBaseAPI
 from summer_modules.database.hbase.hbase.ttypes import (
@@ -23,6 +25,7 @@ HBASE_PORT = CONFIG["hbase"]["port"]
 HBASE_USERNAME = CONFIG["hbase"]["username"]
 HBASE_PASSWORD = CONFIG["hbase"]["password"]
 
+SUMMER_MODULES_TEST_LOGGER.setLevel(logging.INFO)
 
 def run_safe_tests():
     """运行安全的只读测试"""
@@ -210,7 +213,7 @@ def run_safe_tests():
     return test_results
 
 
-def test_get_data_with_timerage_via_ssh():
+def test_count_rows_with_timerage_via_ssh():
     """测试通过 SSH 获取指定时间范围的数据的功能"""
     hbase = HBaseAPI(
         host=HBASE_HOST,
@@ -219,10 +222,39 @@ def test_get_data_with_timerage_via_ssh():
         password=HBASE_PASSWORD,
     )
 
-    # 开始时间为北京时间 2025.6.19 00:00:00
-    start_datetime = datetime(2025, 6, 19, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.19 12:00:00
+    start_datetime = datetime(2025, 6, 19, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
     # 结束时间为北京时间 2025.6.20 00:00:00
-    end_datetime = start_datetime + timedelta(days=1)
+    # end_datetime = start_datetime + timedelta(days=1)
+    # 结束时间为北京时间 2025.6.19 18:00:00
+    end_datetime = datetime(2025, 6, 19, 18, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+    result = hbase.count_rows_with_timerage_via_ssh(
+        table_name="cloud-whoisxml-whois-data",
+        start_datetime=start_datetime,
+        end_datetime=end_datetime,
+    )
+    SUMMER_MODULES_TEST_LOGGER.info(
+        f"表 'cloud-whoisxml-whois-data' 在时间范围 [{start_datetime}, {end_datetime}] 内的行数: {result}"
+    )
+
+def test_get_data_with_timerage_via_ssh():
+    """测试通过 SSH 获取指定时间范围的数据的功能"""
+    start_time = time.time()
+    SUMMER_MODULES_TEST_LOGGER.info("开始测试获取数据功能")
+    hbase = HBaseAPI(
+        host=HBASE_HOST,
+        port=HBASE_PORT,
+        username=HBASE_USERNAME,
+        password=HBASE_PASSWORD,
+    )
+
+    # 开始时间为北京时间 2025.6.19 12:00:00
+    start_datetime = datetime(2025, 6, 19, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 结束时间为北京时间 2025.6.20 00:00:00
+    # end_datetime = start_datetime + timedelta(days=1)
+    # 结束时间为北京时间 2025.6.19 18:00:00
+    end_datetime = datetime(2025, 6, 19, 18, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
 
     result = hbase.get_data_with_timerage_via_ssh(
         table_name="cloud-whoisxml-whois-data",
@@ -233,14 +265,21 @@ def test_get_data_with_timerage_via_ssh():
         SUMMER_MODULES_TEST_LOGGER.info(
             f"成功获取 {len(result.rows)} 行数据，表名: {result.table_name}"
         )
-        for row in result.rows:
-            SUMMER_MODULES_TEST_LOGGER.info(
-                f"行键: {row.row_key}, 列数: {len(row.columns)}"
-            )
+        # for row in result.rows:
+        #     SUMMER_MODULES_TEST_LOGGER.info(
+        #         f"行键: {row.row_key}, 列数: {len(row.columns)}"
+        #     )
     else:
         SUMMER_MODULES_TEST_LOGGER.error(f"获取数据失败: {result.error_message}")
-
+    
+    SUMMER_MODULES_TEST_LOGGER.info("获取数据测试完成")
+    end_time = time.time()
+    execution_time = end_time - start_time
+    SUMMER_MODULES_TEST_LOGGER.info(    
+        f"获取数据测试总耗时: {execution_time:.2f} 秒"
+    )
 
 if __name__ == "__main__":
     # run_safe_tests()
+    # test_count_rows_with_timerage_via_ssh()
     test_get_data_with_timerage_via_ssh()

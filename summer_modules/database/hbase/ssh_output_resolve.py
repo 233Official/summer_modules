@@ -155,11 +155,11 @@ def extract_rows_from_reconstructed_data_lines(data_lines: list[str]) -> list[HB
     for row_key, row in row_map.items():
         rows.append(row)
 
-    HBASE_LOGGER.debug(f"提取到 {len(rows)} 行数据")
     if not rows:
         HBASE_LOGGER.warning("没有提取到任何有效的行数据")
     else:
-        HBASE_LOGGER.debug(f"提取的行数据: {[row.row_key for row in rows[:3]]}...")
+        HBASE_LOGGER.debug(f"提取到 {len(rows)} 行数据")
+        # HBASE_LOGGER.debug(f"提取的行数据: {[row.row_key for row in rows[:3]]}...")
     return rows
 
 
@@ -395,7 +395,7 @@ def reconstruct_complete_data_row(lines: list) -> Optional[list]:
                 stand_line.append(next_line)
                 lines_index += 1
 
-            HBASE_LOGGER.debug(f"已匹配标准数据行列表: {stand_line}")
+            # HBASE_LOGGER.debug(f"已匹配标准数据行列表: {stand_line}")
             stand_lines.append(stand_line)
             stand_line = []  # 重置当前行列表
             start_line_flag = False
@@ -406,7 +406,7 @@ def reconstruct_complete_data_row(lines: list) -> Optional[list]:
             )
             return None
 
-    HBASE_LOGGER.debug(f"所有标准行列表: {stand_lines}")
+    # HBASE_LOGGER.debug(f"所有标准行列表: {stand_lines}")
 
     # 重建完整的数据行
     reconstructed_lines = []
@@ -415,7 +415,7 @@ def reconstruct_complete_data_row(lines: list) -> Optional[list]:
         if reconstructed_line:
             reconstructed_lines.append(reconstructed_line)
 
-    HBASE_LOGGER.debug(f"重建后的完整数据行: {reconstructed_lines}")
+    # HBASE_LOGGER.debug(f"重建后的完整数据行: {reconstructed_lines}")
 
     return reconstructed_lines if reconstructed_lines else None
 
@@ -467,19 +467,19 @@ def reconstruct_single_data_row(stand_line: list[str]) -> str:
         # 若以多个空格开头, 则此行必定只有列后续部分, 清除前缀的所有空格然后将后续部分拼接到 column 信息中
         if line.startswith(" " * 2):
             column += line.strip()  # 清除前缀空格并拼接到列信息中
-            HBASE_LOGGER.debug(
-                f"匹配到(多个空格) + (列后续部分), 列后续部分: {line.strip()}"
-                f"列后续部分为: {line.strip()}"
-            )
+            # HBASE_LOGGER.debug(
+            #     f"匹配到(多个空格) + (列后续部分), 列后续部分: {line.strip()}"
+            #     f"列后续部分为: {line.strip()}"
+            # )
             line_index += 1
         # 如果行以一个空格开头, 则需要区分更复杂的情况
         elif line.startswith(" "):
             # 若模式为 (一个空格开头) + (行键后续部分) + (若干空格结尾) 则说明这一行只有行键后续部分, 需要将其拼接到首行的 row_key 部分
             if re.match(r"\s[^\s]+\s*$", line):
                 row_key += line.strip()
-                HBASE_LOGGER.debug(
-                    f"匹配到(一个空格) + (行键后续部分) + (若干空格结尾), 行键后续部分: {line.strip()}"
-                )
+                # HBASE_LOGGER.debug(
+                #     f"匹配到(一个空格) + (行键后续部分) + (若干空格结尾), 行键后续部分: {line.strip()}"
+                # )
                 line_index += 1
             # 若模式为 (一个空格开头) + (行键后续部分) + (一个空格分隔) + (列后续部分[若干字符串(并不一定以 column 开头)])
             # 正则为: (一个空格) + (若干字符串) + (一个空格) + (若干字符串)
@@ -495,10 +495,10 @@ def reconstruct_single_data_row(stand_line: list[str]) -> str:
                     continue
                 row_key += parts[1].strip()  # 拼接行键
                 column += parts[2].strip()  # 拼接列信息
-                HBASE_LOGGER.debug(
-                    f"匹配到(一个空格) + (若干字符串) + (一个空格) + (若干字符串)"
-                    f"行键后续部分: {parts[1].strip()}, 列后续部分: {parts[2].strip()}"
-                )
+                # HBASE_LOGGER.debug(
+                #     f"匹配到(一个空格) + (若干字符串) + (一个空格) + (若干字符串)"
+                #     f"行键后续部分: {parts[1].strip()}, 列后续部分: {parts[2].strip()}"
+                # )
                 line_index += 1
             # 若模式为 (一个空格开头) + (行键后续部分) + (若干空格分隔) + (列后续部分)
             # 正则为: (一个空格) + (若干字符串) + (若干空格) + (若干字符串)
@@ -515,10 +515,10 @@ def reconstruct_single_data_row(stand_line: list[str]) -> str:
                     continue
                 row_key += parts[1].strip()  # 拼接行键
                 column += parts[2].strip()  # 拼接列信息
-                HBASE_LOGGER.debug(
-                    f"匹配到(一个空格) + (若干字符串) + (若干空格) + (若干字符串)"
-                    f"行键后续部分: {parts[1].strip()}, 列后续部分: {parts[2].strip()}"
-                )
+                # HBASE_LOGGER.debug(
+                #     f"匹配到(一个空格) + (若干字符串) + (若干空格) + (若干字符串)"
+                #     f"行键后续部分: {parts[1].strip()}, 列后续部分: {parts[2].strip()}"
+                # )
                 line_index += 1
             else:
                 HBASE_LOGGER.error("行格式不正确, 无法处理行: {}".format(line))
@@ -532,5 +532,5 @@ def reconstruct_single_data_row(stand_line: list[str]) -> str:
     # 拼接最终的行字符串
     reconstructed_line = f" {row_key} {column}"
 
-    HBASE_LOGGER.debug(f"重建的单个数据行: {reconstructed_line}")
+    # HBASE_LOGGER.debug(f"重建的单个数据行: {reconstructed_line}")
     return reconstructed_line

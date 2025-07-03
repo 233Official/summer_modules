@@ -8,6 +8,7 @@ from typing import Any, Optional, Union
 import threading
 from configparser import ConfigParser
 import json
+import re
 
 from thrift.transport import THttpClient
 from thrift.transport import TTransport
@@ -72,7 +73,13 @@ class HBaseAPI:
 
         # 建立连接
         self._connect()
-        self.ssh_connection.connect(enbale_hbase_shell=True)
+        self.ssh_connection.connect(
+            enbale_hbase_shell=True,
+            terminal_width=1024,  # 终端宽度
+            # terminal_width=1024 * 1024,  # 终端宽度
+            # terminal_height=1024 * 1024,  # 终端高度
+            terminal_height=1024,  # 终端高度
+        )
 
         HBASE_LOGGER.info(f"HBase API 初始化完成，连接到 {host}:{port}")
 
@@ -1037,6 +1044,67 @@ class HBaseAPI:
         JAVA_LONG_MAX = 9223372036854775807
         return JAVA_LONG_MAX - reverse_timestamp
 
+    def count_rows_with_timerage_via_ssh(
+        self,
+        table_name: str,
+        start_datetime: datetime,
+        end_datetime: datetime,
+    ) -> Optional[int]:
+        """计算指定表时间范围内的数据行数
+
+        Args:
+            table_name: 表名
+            start_datetime: 起始日期时间
+            end_datetime: 结束日期时间
+
+        Returns:
+            int: 符合条件的行数
+        """
+        if not self.table_exists(table_name):
+            HBASE_LOGGER.error(f"表 {table_name} 不存在")
+            return None
+        HBASE_LOGGER.debug(
+            f"start_datetime: {start_datetime}, end_datetime: {end_datetime}"
+        )
+        start_datetime_UTC = start_datetime.astimezone(ZoneInfo("UTC"))
+        end_datetime_UTC = end_datetime.astimezone(ZoneInfo("UTC"))
+        HBASE_LOGGER.debug(
+            f"start_datetime_UTC: {start_datetime_UTC}, end_datetime_UTC: {end_datetime_UTC}"
+        )
+
+        start_timestamp = int(start_datetime_UTC.timestamp() * 1000)  # 转换为毫秒时间戳
+        end_timestamp = int(end_datetime_UTC.timestamp() * 1000)  # 转换为毫秒时间戳
+        HBASE_LOGGER.debug(
+            f"start_timestamp: {start_timestamp}, end_timestamp: {end_timestamp}"
+        )
+        command = f"count '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}]}}"
+
+        ssh_result = self.ssh_connection.execute_hbase_command(command)
+        if not ssh_result.success:
+            HBASE_LOGGER.error(
+                f"通过 SSH 执行 HBase 命令失败: {ssh_result.error_message}"
+            )
+            return None
+
+        output = ssh_result.output
+        if not output:
+            error_message = "SSH 执行 Hbase Shell 命令没有返回任何信息, 这并非正常情况, 请手动调试检查"
+            HBASE_LOGGER.error(error_message)
+            return None
+
+        # 直接匹配 => 数字 的形式即为行数
+        match = re.search(r"=> (\d+)", output)
+        if not match:
+            error_message = "无法从 HBase Shell 输出中解析行数"
+            HBASE_LOGGER.error(error_message)
+            return None
+
+        row_count = int(match.group(1))
+        HBASE_LOGGER.info(
+            f"表 {table_name} 在时间范围 [{start_datetime_UTC}, {end_datetime_UTC}] 内的行数: {row_count}"
+        )
+        return row_count
+
     def get_data_with_timerage_via_ssh(
         self,
         table_name: str,
@@ -1078,8 +1146,20 @@ class HBaseAPI:
         command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}]}}"
         # 先限制 2 条数据测试下基本功能
         # command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}],LIMIT => 2}}"
+        # 限制 200 条数据测试下基本功能
+        # command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}],LIMIT => 200}}"
+        # 限制 1000,500 条数据测试下基本功能
+        command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}],LIMIT => 1000}}"
+        # 限制 100 条数据测试下基本功能
+        # command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}],LIMIT => 100}}"
 
-        ssh_result = self.ssh_connection.execute_hbase_command(command)
+        ssh_result = self.ssh_connection.execute_hbase_command(
+            command=command,
+            # buffer_size= 1024, # 设置缓冲区大小为 1KB
+            # buffer_size=102400 # 设置缓冲区大小为 100KB
+            buffer_size=1024 * 1024,  # 设置缓冲区大小为 1MB
+            # buffer_size= 1024 * 1024 * 1024,  # 设置缓冲区大小为 1GB
+        )
         if not ssh_result.success:
             HBASE_LOGGER.error(
                 f"通过 SSH 执行 HBase 命令失败: {ssh_result.error_message}"

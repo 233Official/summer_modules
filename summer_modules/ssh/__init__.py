@@ -36,11 +36,18 @@ class SSHConnection:
         """专门用于执行 Hbase 命令的交互式 shell"""
         SSH_LOGGER.info(f"SSH connection initialized for {self.hostname}")
 
-    def connect(self, enbale_hbase_shell: bool = False) -> None:
+    def connect(
+        self,
+        enbale_hbase_shell: bool = False,
+        terminal_width: int = 80,
+        terminal_height: int = 24,
+    ) -> None:
         """建立 SSH 连接
 
         Args:
             enbale_hbase_shell: 是否初始化 HBase shell, 默认为 False
+            terminal_width: 终端宽度（字符数），默认为 80
+            terminal_height: 终端高度（行数），默认为 24
         """
         self.client = paramiko.SSHClient()
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -53,11 +60,24 @@ class SSHConnection:
             allow_agent=False,
         )
         SSH_LOGGER.info(f"已连接到 {self.hostname} 的 SSH 服务器")
-        self.invoke_shell = self.client.invoke_shell()
+        self.invoke_shell = self.client.invoke_shell(
+            term="xterm",  # 设置终端类型
+            width=terminal_width,  # 终端宽度（字符数）
+            height=terminal_height,  # 终端高度（行数）
+            width_pixels=0,  # 宽度像素（0表示使用字符宽度）
+            height_pixels=0,  # 高度像素（0表示使用字符高度）
+        )
+
         SSH_LOGGER.info(f"已初始化交互式 shell 用于执行命令集")
         # 如果需要 HBase shell，则初始化
         if enbale_hbase_shell:
-            self.hbase_shell = self.client.invoke_shell()
+            self.hbase_shell = self.client.invoke_shell(
+                term="xterm",  # 设置 HBase shell 的终端类型
+                width=terminal_width,  # HBase shell 终端宽度（字符数）
+                height=terminal_height,  # HBase shell 终端高度（行数）
+                width_pixels=0,  # HBase shell 宽度像素（0表示使用字符宽度）
+                height_pixels=0,  # HBase shell 高度像素（0表示使用字符高度）
+            )
             # self.hbase_shell 尝试进入 HBase shell 环境
             hbase_shell_init_result = self.execute_interactive_commands(
                 commands=["hbase shell"],
@@ -444,9 +464,9 @@ class SSHConnection:
                             break
 
                 else:
-                    SSH_LOGGER.debug(
-                        "当前没有可读取的数据，可能是命令正在执行中或等待输入"
-                    )
+                    # SSH_LOGGER.debug(
+                    #     "当前没有可读取的数据，可能是命令正在执行中或等待输入"
+                    # )
                     time.sleep(1)
 
         except Exception as e:
@@ -491,7 +511,7 @@ class SSHConnection:
         )
 
     def execute_hbase_command(
-        self, command: str, timeout: int = 300
+        self, command: str, timeout: int = 300, buffer_size: int = 10240
     ) -> SingleCommandResult:  # type: ignore
         """执行 HBase shell 命令并返回结构化结果s
         由于 Hbase 命令需要先进入 HBase shell 环境，然后一直在 HBase shell 中执行命令，所以不能采用 execute_command 这样的单条命令执行输出与清空的机制
@@ -545,7 +565,7 @@ class SSHConnection:
         output = ""
         while True:
             if self.hbase_shell.recv_ready():
-                chunk = self.hbase_shell.recv(1024).decode("utf-8", errors="ignore")
+                chunk = self.hbase_shell.recv(buffer_size).decode("utf-8", errors="ignore")
                 output += chunk
                 SSH_LOGGER.debug(f"接收到 HBase shell 输出: {chunk.strip()}")
             else:
@@ -556,8 +576,11 @@ class SSHConnection:
             time.sleep(0.1)
 
         execution_time = time.time() - start_time
+        # SSH_LOGGER.debug(
+        #     f"已执行 HBase shell 命令: {command}，输出: {output.strip()}, 用时: {execution_time:.2f}s"
+        # )
         SSH_LOGGER.debug(
-            f"已执行 HBase shell 命令: {command}，输出: {output.strip()}, 用时: {execution_time:.2f}s"
+            f"已执行 HBase shell 命令: {command}，用时: {execution_time:.2f}s"
         )
 
         return SingleCommandResult(
