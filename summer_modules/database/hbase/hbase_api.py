@@ -2,11 +2,11 @@ import os
 import json
 import zlib
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import Any, Optional, Union
 import threading
 from configparser import ConfigParser
-import re
 import json
 
 from thrift.transport import THttpClient
@@ -28,6 +28,10 @@ from summer_modules.database.hbase.hbase_model import (
     HBaseColumn,
     HBaseRow,
     HBaseScanResult,
+    ReconstructTruncatedLinesResult,
+)
+from summer_modules.database.hbase.ssh_output_resolve import (
+    parse_hbase_shell_scan_cmd_output,
 )
 
 from summer_modules.ssh import SSHConnection
@@ -68,7 +72,7 @@ class HBaseAPI:
 
         # 建立连接
         self._connect()
-        self.ssh_connection.connect()
+        self.ssh_connection.connect(enbale_hbase_shell=True)
 
         HBASE_LOGGER.info(f"HBase API 初始化完成，连接到 {host}:{port}")
 
@@ -1036,8 +1040,8 @@ class HBaseAPI:
     def get_data_with_timerage_via_ssh(
         self,
         table_name: str,
-        start_date: datetime,
-        end_date: datetime,
+        start_datetime: datetime,
+        end_datetime: datetime,
     ) -> HBaseScanResult:
         """通过 SSH 连接获取指定时间范围内的数据
 
@@ -1057,9 +1061,23 @@ class HBaseAPI:
                 table_name=table_name,
             )
 
-        start_timestamp = int(start_date.timestamp() * 1000)
-        end_timestamp = int(end_date.timestamp() * 1000)
+        HBASE_LOGGER.debug(
+            f"start_datetime: {start_datetime}, end_datetime: {end_datetime}"
+        )
+        start_datetime_UTC = start_datetime.astimezone(ZoneInfo("UTC"))
+        end_datetime_UTC = end_datetime.astimezone(ZoneInfo("UTC"))
+        HBASE_LOGGER.debug(
+            f"start_datetime_UTC: {start_datetime_UTC}, end_datetime_UTC: {end_datetime_UTC}"
+        )
+
+        start_timestamp = int(start_datetime_UTC.timestamp() * 1000)  # 转换为毫秒时间戳
+        end_timestamp = int(end_datetime_UTC.timestamp() * 1000)  # 转换为毫秒时间戳
+        HBASE_LOGGER.debug(
+            f"start_timestamp: {start_timestamp}, end_timestamp: {end_timestamp}"
+        )
         command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}]}}"
+        # 先限制 2 条数据测试下基本功能
+        # command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}],LIMIT => 2}}"
 
         ssh_result = self.ssh_connection.execute_hbase_command(command)
         if not ssh_result.success:
@@ -1084,24 +1102,31 @@ class HBaseAPI:
                 error_message=error_message,
             )
 
-    def parse_hbase_shell_scan_cmd_output(self, output: str) -> HBaseScanResult:
-        """解析 HBase Shell 扫描命令的输出
+        # 解析 HBase Shell 扫描命令的输出
+        scan_result = parse_hbase_shell_scan_cmd_output(output)
+        if not scan_result.success:
+            HBASE_LOGGER.error(
+                f"解析 HBase Shell 扫描命令输出失败: {scan_result.error_message}"
+            )
+            return scan_result
 
-        Args:
-            output: HBase Shell 扫描命令的输出字符串
+        # 对比 scan_result 中的 table_name 和 command 解析的是否与当前一致
+        if scan_result.table_name != table_name or scan_result.command != command:
+            error_message = (
+                f"解析的表名或命令与预期不符: 解析结果表名 {scan_result.table_name}, "
+                f"预期表名 {table_name}, 解析结果命令 {scan_result.command}, "
+                f"预期命令 {command}"
+            )
+            HBASE_LOGGER.error(error_message)
+            return HBaseScanResult(
+                success=False,
+                table_name=table_name,
+                command=command,
+                error_message=error_message,
+            )
 
-        Returns:
-            HBaseScanResult: 包含解析结果的对象
-            - success: 是否成功解析
-            - error_message: 错误信息（如果有）
-            - table_name: 表名
-            - command: 执行的命令
-            - row_count: 扫描到的行数
-            - execution_time: 执行时间（秒）
-            - rows: list[HBaseRow]: 扫描到的行数据列表
-        """
-
-
+        # 返回解析后的结果
+        return scan_result
 
     def close(self):
         """关闭 HBase 连接"""

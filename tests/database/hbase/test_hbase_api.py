@@ -1,8 +1,10 @@
 import pytest
 import json
 import zlib
-from unittest.mock import patch, MagicMock, call
 from pathlib import Path
+from unittest.mock import patch, MagicMock, call
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from summer_modules.database.hbase.hbase_api import HBaseAPI
 from summer_modules.database.hbase.hbase.ttypes import (
@@ -15,16 +17,15 @@ from summer_modules.database.hbase.hbase.ttypes import (
 )
 from tests import SUMMER_MODULES_TEST_LOGGER, CONFIG
 
+# 从配置文件获取连接信息
+HBASE_HOST = CONFIG["hbase"]["host"]
+HBASE_PORT = CONFIG["hbase"]["port"]
+HBASE_USERNAME = CONFIG["hbase"]["username"]
+HBASE_PASSWORD = CONFIG["hbase"]["password"]
+
 
 def run_safe_tests():
     """运行安全的只读测试"""
-
-    # 从配置文件获取连接信息
-    HBASE_HOST = CONFIG["hbase"]["host"]
-    HBASE_PORT = CONFIG["hbase"]["port"]
-    HBASE_USERNAME = CONFIG["hbase"]["username"]
-    HBASE_PASSWORD = CONFIG["hbase"]["password"]
-
     # 记录测试开始
     SUMMER_MODULES_TEST_LOGGER.info("=" * 50)
     SUMMER_MODULES_TEST_LOGGER.info(
@@ -209,5 +210,37 @@ def run_safe_tests():
     return test_results
 
 
+def test_get_data_with_timerage_via_ssh():
+    """测试通过 SSH 获取指定时间范围的数据的功能"""
+    hbase = HBaseAPI(
+        host=HBASE_HOST,
+        port=HBASE_PORT,
+        username=HBASE_USERNAME,
+        password=HBASE_PASSWORD,
+    )
+
+    # 开始时间为北京时间 2025.6.19 00:00:00
+    start_datetime = datetime(2025, 6, 19, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 结束时间为北京时间 2025.6.20 00:00:00
+    end_datetime = start_datetime + timedelta(days=1)
+
+    result = hbase.get_data_with_timerage_via_ssh(
+        table_name="cloud-whoisxml-whois-data",
+        start_datetime=start_datetime,
+        end_datetime=end_datetime,
+    )
+    if result.success:
+        SUMMER_MODULES_TEST_LOGGER.info(
+            f"成功获取 {len(result.rows)} 行数据，表名: {result.table_name}"
+        )
+        for row in result.rows:
+            SUMMER_MODULES_TEST_LOGGER.info(
+                f"行键: {row.row_key}, 列数: {len(row.columns)}"
+            )
+    else:
+        SUMMER_MODULES_TEST_LOGGER.error(f"获取数据失败: {result.error_message}")
+
+
 if __name__ == "__main__":
-    run_safe_tests()
+    # run_safe_tests()
+    test_get_data_with_timerage_via_ssh()
