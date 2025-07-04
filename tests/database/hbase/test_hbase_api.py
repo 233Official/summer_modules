@@ -433,8 +433,25 @@ def test_get_data_with_timerage_batches_via_ssh_imporve():
     )
 
 
+def test_reverse_timestamp_to_normal():
+    """测试将时间戳转换为正常时间"""
+    hbase = HBaseAPI(
+        host=HBASE_HOST,
+        port=HBASE_PORT,
+        username=HBASE_USERNAME,
+        password=HBASE_PASSWORD,
+    )
+
+    # 测试时间戳
+    timestamp = 9223370286617113050
+    normal_time = hbase.reverse_timestamp_to_normal(timestamp)
+    SUMMER_MODULES_TEST_LOGGER.info(
+        f"时间戳 {timestamp} 转换为正常时间: {normal_time}"
+    )
+
 if __name__ == "__main__":
     # run_safe_tests()
     # test_count_rows_with_timerage_via_ssh()
     # test_get_data_with_timerage_via_ssh()
-    test_get_data_with_timerage_batches_via_ssh_imporve()
+    # test_get_data_with_timerage_batches_via_ssh_imporve()
+    test_reverse_timestamp_to_normal()
