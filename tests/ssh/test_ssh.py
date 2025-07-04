@@ -308,9 +308,9 @@ def test_execute_hbase_command():
 
 def main():
     # test_execute_command()
-    # test_execute_interactive_commands()
+    test_execute_interactive_commands()
     # test_hbase_execute_interactive_command()
-    test_execute_hbase_command()
+    # test_execute_hbase_command()
 
 
 if __name__ == "__main__":
