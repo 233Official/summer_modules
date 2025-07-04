@@ -27,6 +27,7 @@ HBASE_PASSWORD = CONFIG["hbase"]["password"]
 
 SUMMER_MODULES_TEST_LOGGER.setLevel(logging.INFO)
 
+
 def run_safe_tests():
     """运行安全的只读测试"""
     # 记录测试开始
@@ -238,6 +239,7 @@ def test_count_rows_with_timerage_via_ssh():
         f"表 'cloud-whoisxml-whois-data' 在时间范围 [{start_datetime}, {end_datetime}] 内的行数: {result}"
     )
 
+
 def test_get_data_with_timerage_via_ssh():
     """测试通过 SSH 获取指定时间范围的数据的功能"""
     start_time = time.time()
@@ -250,17 +252,74 @@ def test_get_data_with_timerage_via_ssh():
     )
 
     # 开始时间为北京时间 2025.6.19 12:00:00
-    start_datetime = datetime(2025, 6, 19, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # start_datetime = datetime(2025, 6, 19, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
     # 结束时间为北京时间 2025.6.20 00:00:00
     # end_datetime = start_datetime + timedelta(days=1)
     # 结束时间为北京时间 2025.6.19 18:00:00
-    end_datetime = datetime(2025, 6, 19, 18, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # end_datetime = datetime(2025, 6, 19, 18, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 结束时间为北京时间 2025.6.19 15:00:00
+    # end_datetime = datetime(2025, 6, 19, 15, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
 
-    result = hbase.get_data_with_timerage_via_ssh(
+    # 开始时间为北京时间 2025.6.19 15:00:00
+    # start_datetime = datetime(2025, 6, 19, 15, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+    # 结束时间为北京时间 2025.6.19 16:30:00
+    # end_datetime = datetime(2025, 6, 19, 16, 30, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 结束时间为北京时间 2025.6.19 15:45:00
+    # end_datetime = datetime(2025, 6, 19, 15, 45, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 结束时间为北京时间 2025.6.19 15:22:30
+    # end_datetime = datetime(2025, 6, 19, 15, 22, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+    # 开始时间为北京时间 2025.6.19 15:22:30
+    # start_datetime = datetime(2025, 6, 19, 15, 22, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 结束时间为北京时间 2025.6.19 15:33:45
+    # end_datetime = datetime(2025, 6, 19, 15, 33, 45, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+    # 开始时间为北京时间 2025.6.19 15:33:45
+    # start_datetime = datetime(2025, 6, 19, 15, 33, 45, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 结束时间为北京时间 2025.6.19 15:40:00
+    # end_datetime = datetime(2025, 6, 19, 15, 40, 00, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 结束时间为北京时间 2025.6.19 15:37:00
+    # end_datetime = datetime(2025, 6, 19, 15, 37, 00, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+    # 开始时间为北京时间 2025.6.19 15:37:00
+    start_datetime = datetime(2025, 6, 19, 15, 37, 00, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 结束时间为北京时间 2025.6.19 15:40:00
+    # end_datetime = datetime(2025, 6, 19, 15, 40, 00, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 结束时间为北京时间 2025.6.19 15:38:39
+    # end_datetime = datetime(2025, 6, 19, 15, 38, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 结束时间为北京时间 2025.6.19 15:37:45
+    end_datetime = datetime(2025, 6, 19, 15, 37, 45, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+    # 测试全量获取数据
+    # result = hbase.get_data_with_timerage_via_ssh(
+    #     table_name="cloud-whoisxml-whois-data",
+    #     start_datetime=start_datetime,
+    #     end_datetime=end_datetime,
+    # )
+    # 测试获取 3 条数据
+    # result = hbase.get_data_with_timerage_via_ssh(
+    #     table_name="cloud-whoisxml-whois-data",
+    #     start_datetime=start_datetime,
+    #     end_datetime=end_datetime,
+    #     batch_size=3,
+    # )
+    # 测试从指定起始行键开始获取 3 条数据
+    # result = hbase.get_data_with_timerage_via_ssh(
+    #     table_name="cloud-whoisxml-whois-data",
+    #     start_datetime=start_datetime,
+    #     end_datetime=end_datetime,
+    #     batch_size=3,
+    #     start_row_key="0.qidianmoji.cn-9223370286649119042",
+    # )
+
+    # 测试分批全量获取数据
+    result = hbase.get_data_with_timerage_batches_via_ssh(
         table_name="cloud-whoisxml-whois-data",
         start_datetime=start_datetime,
         end_datetime=end_datetime,
     )
+
     if result.success:
         SUMMER_MODULES_TEST_LOGGER.info(
             f"成功获取 {len(result.rows)} 行数据，表名: {result.table_name}"
@@ -271,13 +330,12 @@ def test_get_data_with_timerage_via_ssh():
         #     )
     else:
         SUMMER_MODULES_TEST_LOGGER.error(f"获取数据失败: {result.error_message}")
-    
+
     SUMMER_MODULES_TEST_LOGGER.info("获取数据测试完成")
     end_time = time.time()
     execution_time = end_time - start_time
-    SUMMER_MODULES_TEST_LOGGER.info(    
-        f"获取数据测试总耗时: {execution_time:.2f} 秒"
-    )
+    SUMMER_MODULES_TEST_LOGGER.info(f"获取数据测试总耗时: {execution_time:.2f} 秒")
+
 
 if __name__ == "__main__":
     # run_safe_tests()

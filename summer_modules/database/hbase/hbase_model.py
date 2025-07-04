@@ -69,7 +69,7 @@ class HBaseScanResult(BaseModel):
     """错误信息"""
     table_name: str = Field(..., description="表名")
     """表名"""
-    command: Optional[str] = Field(default=None, description="执行的 HBase 命令")
+    command: Optional[str | list] = Field(default=None, description="执行的 HBase 命令")
     """执行的 HBase 命令"""
     row_count: int = Field(default=0, description="返回的行数")
     """返回的行数"""

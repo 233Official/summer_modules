@@ -44,7 +44,15 @@ class HBaseAPI:
     提供对 HBase 数据库的连接和操作功能，包括表管理和数据查询等。
     """
 
-    def __init__(self, host: str, port: int, username: str = "", password: str = ""):
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        username: str = "",
+        password: str = "",
+        ssh_terminal_width: int = 1024,  # SSH 终端宽度
+        ssh_command_buffer_size: int = 1024 * 1024,  # SSH 命令缓冲区大小，默认为 1MB
+    ):
         """初始化 HBase API 连接
 
         Args:
@@ -52,12 +60,15 @@ class HBaseAPI:
             port: HBase 服务器端口
             username: 用户名（如果需要认证）
             password: 密码（如果需要认证）
+            ssh_terminal_width: SSH 终端宽度，默认为 1024
+            ssh_command_buffer_size: SSH 命令缓冲区大小，默认为 1MB
         """
         self.host = host
         self.port = port
         self.username = username
         self.password = password
         self.write_lock = threading.Lock()
+        self.ssh_command_buffer_size = ssh_command_buffer_size
 
         # 初始化连接属性
         self._transport = None
@@ -75,7 +86,7 @@ class HBaseAPI:
         self._connect()
         self.ssh_connection.connect(
             enbale_hbase_shell=True,
-            terminal_width=1024,  # 终端宽度
+            terminal_width=ssh_terminal_width,  # SSH 终端宽度
             # terminal_width=1024 * 1024,  # 终端宽度
             # terminal_height=1024 * 1024,  # 终端高度
             terminal_height=1024,  # 终端高度
@@ -1105,11 +1116,152 @@ class HBaseAPI:
         )
         return row_count
 
+    def get_data_with_timerage_batches_via_ssh(
+        self,
+        table_name: str,
+        start_datetime: datetime,
+        end_datetime: datetime,
+        batch_size: int = 1000,
+    ) -> HBaseScanResult:
+        """通过 SSH 连接获取指定时间范围内的数据，支持批量处理
+
+        Args:
+            table_name: 表名
+            start_datetime: 起始日期时间
+            end_datetime: 结束日期时间
+            batch_size: 每批次获取的行数，默认为 1000
+
+        Returns:
+            HBaseScanResult: 包含扫描结果的对象
+        """
+        if not self.table_exists(table_name):
+            HBASE_LOGGER.error(f"表 {table_name} 不存在")
+            return HBaseScanResult(
+                success=False,
+                error_message=f"表 {table_name} 不存在",
+                table_name=table_name,
+            )
+
+        # 先查询范围内有多少条数据, 大于 1000 的话要分批获取, <= 1000 的话直接获取
+        rows_in_timerage = self.count_rows_with_timerage_via_ssh(
+            table_name=table_name,
+            start_datetime=start_datetime,
+            end_datetime=end_datetime,
+        )
+        if rows_in_timerage is None:
+            error_message = f"无法获取表 {table_name} 在时间范围 [{start_datetime}, {end_datetime}] 内的行数"
+            HBASE_LOGGER.error(error_message)
+            return HBaseScanResult(
+                success=False,
+                error_message=error_message,
+                table_name=table_name,
+            )
+        if rows_in_timerage <= 1000:
+            HBASE_LOGGER.info(
+                f"表 {table_name} 在时间范围 [{start_datetime}, {end_datetime}] 内的行数为 {rows_in_timerage}，直接获取数据"
+            )
+            return self.get_data_with_timerage_via_ssh(
+                table_name=table_name,
+                start_datetime=start_datetime,
+                end_datetime=end_datetime,
+            )
+        HBASE_LOGGER.info(
+            f"表 {table_name} 在时间范围 [{start_datetime}, {end_datetime}] 内的行数为 {rows_in_timerage}，需要分批获取数据"
+        )
+
+        start_datetime_UTC = start_datetime.astimezone(ZoneInfo("UTC"))
+        end_datetime_UTC = end_datetime.astimezone(ZoneInfo("UTC"))
+        HBASE_LOGGER.debug(
+            f"start_datetime_UTC: {start_datetime_UTC}, end_datetime_UTC: {end_datetime_UTC}"
+        )
+        start_timestamp = int(start_datetime_UTC.timestamp() * 1000)  # 转换为毫秒时间戳
+        end_timestamp = int(end_datetime_UTC.timestamp() * 1000)  # 转换为毫秒时间戳
+        HBASE_LOGGER.debug(
+            f"start_timestamp: {start_timestamp}, end_timestamp: {end_timestamp}"
+        )
+
+        # 初始化结果列表
+        all_rows: list[HBaseRow] = []
+        commands = []  # 用于存储每批次的命令
+        row_counts = 0  # 用于记录总行数
+        start_row_key = None  # 用于记录每批次的起始行键
+        index = 1  # 批次计数器
+
+        current_time = time.time()
+        while True:
+            HBASE_LOGGER.info(f"获取第 {index} 批次数据")
+            # 计算当前批次的起始行键
+            # 如果是第一批次，直接从起始行键开始
+            if start_row_key is None:
+                current_result = self.get_data_with_timerage_via_ssh(
+                    table_name=table_name,
+                    start_datetime=start_datetime,
+                    end_datetime=end_datetime,
+                    batch_size=batch_size + 1,
+                )
+            else:
+                current_result = self.get_data_with_timerage_via_ssh(
+                    table_name=table_name,
+                    start_datetime=start_datetime,
+                    end_datetime=end_datetime,
+                    start_row_key=start_row_key,
+                    batch_size=batch_size + 1,
+                )
+            if not current_result.success:
+                HBASE_LOGGER.error(
+                    f"获取表 {table_name} 第 {index} 批次数据失败: {current_result.error_message}"
+                )
+                return current_result
+            if not current_result.rows or len(current_result.rows) < batch_size:
+                HBASE_LOGGER.info(
+                    f"表 {table_name} 第 {index} 批次数据获取完成，共获取到 {len(current_result.rows)} 条数据, 当前获取数据量已经小于批次大小 {batch_size}，说明已经获取完所有数据, 结束循环"
+                )
+                all_rows.extend(current_result.rows)
+                commands.append(current_result.command)
+                row_counts += len(current_result.rows)
+                break
+            HBASE_LOGGER.info(
+                f"表 {table_name} 第 {index} 批次数据获取完成，共获取到 {len(current_result.rows)} 条数据"
+            )
+            all_rows.extend(
+                current_result.rows[:batch_size]
+            )  # 只保留 batch_size 条数据
+            commands.append(current_result.command)
+            row_counts += len(current_result.rows[:batch_size])
+            # 更新起始行键为当前批次的最后一行的行键
+            start_row_key = current_result.rows[-1].row_key
+            index += 1
+
+        execution_time = time.time() - current_time
+        HBASE_LOGGER.info(
+            f"获取表 {table_name} 在时间范围 [{start_datetime}, {end_datetime}] 内的所有数据完成, 共获取到 {len(all_rows)} 条数据, 批次大小为 {batch_size}, 总耗时: {execution_time:.2f} 秒"
+        )
+        # 判断当前获取到的行数是否和最开始查询的行数一致
+        if row_counts != rows_in_timerage:
+            HBASE_LOGGER.warning(
+                f"获取到的行数 {row_counts} 与最开始查询的行数 {rows_in_timerage} 不一致, 可能是因为数据在获取过程中发生了变化"
+            )
+        else:
+            HBASE_LOGGER.info(
+                f"获取到的行数 {row_counts} 与最开始查询的行数 {rows_in_timerage} 一致"
+            )
+
+        return HBaseScanResult(
+            success=True,
+            rows=all_rows,
+            table_name=table_name,
+            command=commands,
+            row_count=row_counts,
+            execution_time=execution_time,
+        )
+
     def get_data_with_timerage_via_ssh(
         self,
         table_name: str,
         start_datetime: datetime,
         end_datetime: datetime,
+        start_row_key: Optional[str] = None,
+        batch_size: Optional[int] = None,
     ) -> HBaseScanResult:
         """通过 SSH 连接获取指定时间范围内的数据
 
@@ -1143,22 +1295,34 @@ class HBaseAPI:
         HBASE_LOGGER.debug(
             f"start_timestamp: {start_timestamp}, end_timestamp: {end_timestamp}"
         )
-        command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}]}}"
+
+        # command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}]}}"
         # 先限制 2 条数据测试下基本功能
         # command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}],LIMIT => 2}}"
         # 限制 200 条数据测试下基本功能
         # command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}],LIMIT => 200}}"
         # 限制 1000,500 条数据测试下基本功能
-        command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}],LIMIT => 1000}}"
+        # command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}],LIMIT => 100}}"
         # 限制 100 条数据测试下基本功能
         # command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}],LIMIT => 100}}"
+        if start_row_key is None:
+            if batch_size is None:
+                command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}]}}"
+            else:
+                command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}], LIMIT => {batch_size}}}"
+        else:
+            if batch_size is None:
+                command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}], STARTROW => '{start_row_key}'}}"
+            else:
+                command = f"scan '{table_name}', {{TIMERANGE => [{start_timestamp}, {end_timestamp}], STARTROW => '{start_row_key}', LIMIT => {batch_size}}}"
 
         ssh_result = self.ssh_connection.execute_hbase_command(
             command=command,
             # buffer_size= 1024, # 设置缓冲区大小为 1KB
             # buffer_size=102400 # 设置缓冲区大小为 100KB
-            buffer_size=1024 * 1024,  # 设置缓冲区大小为 1MB
+            # buffer_size=1024 * 1024,  # 设置缓冲区大小为 1MB
             # buffer_size= 1024 * 1024 * 1024,  # 设置缓冲区大小为 1GB
+            buffer_size=self.ssh_command_buffer_size,  # 使用配置的缓冲区大小
         )
         if not ssh_result.success:
             HBASE_LOGGER.error(
