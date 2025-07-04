@@ -412,7 +412,8 @@ def test_get_data_with_timerage_batches_via_ssh_imporve():
         end_datetime=end_datetime,
         # max_limit=100000,  # 设置最大行数限制，避免过多数据导致程序崩溃
         # max_limit=10000,  # 设置最大行数限制，避免过多数据导致程序崩溃
-        start_row_key="0.time.chameleoncloud.co.uk-9223370286645797690",
+        # start_row_key="0.time.chameleoncloud.co.uk-9223370286645797690",
+        start_row_key= result1.last_row_key,  # 使用上一次获取的最后一行键作为起始行键
         max_limit=3,  # 设置最大行数限制，避免过多数据导致程序崩溃
     )
 
