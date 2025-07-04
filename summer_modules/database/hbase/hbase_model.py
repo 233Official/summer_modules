@@ -77,6 +77,10 @@ class HBaseScanResult(BaseModel):
     """执行时间（秒）"""
     rows: list[HBaseRow] = Field(default_factory=list, description="扫描到的行记录列表")
     """扫描到的行记录列表"""
+    last_row_key: Optional[str] = Field(
+        default=None, description="最后一行的行键(当设置了最大行数限制且被触发时会返回此值)"
+    )
+    """最后一行的行键(当设置了最大行数限制且被触发时会返回此值)"""
 
     def __post_init__(self):
         """初始化后处理"""

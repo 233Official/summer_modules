@@ -1122,6 +1122,8 @@ class HBaseAPI:
         start_datetime: datetime,
         end_datetime: datetime,
         batch_size: int = 1000,
+        max_limit: Optional[int] = None, 
+        start_row_key: Optional[str] = None,
     ) -> HBaseScanResult:
         """通过 SSH 连接获取指定时间范围内的数据，支持批量处理
 
@@ -1130,9 +1132,11 @@ class HBaseAPI:
             start_datetime: 起始日期时间
             end_datetime: 结束日期时间
             batch_size: 每批次获取的行数，默认为 1000
+            max_limit: 最大行数限制，放置过多数据导致程序崩溃的折中方案, 后续会进行优化
+            start_row_key: 起始行键，如果指定则从该行键开始获取数据(一般用于触发上限时后续获取数据的场景)
 
         Returns:
-            HBaseScanResult: 包含扫描结果的对象
+            HBaseScanResult: 包含扫描结果的对象, 如果触发了 max_limit, 那么会设置返回值中的 last_row_key, 这是当前返回值的 rows 中最后一条数据在 hbase 中的下一条数据的 row_key, 方便后续继续获取数据
         """
         if not self.table_exists(table_name):
             HBASE_LOGGER.error(f"表 {table_name} 不存在")
@@ -1141,6 +1145,13 @@ class HBaseAPI:
                 error_message=f"表 {table_name} 不存在",
                 table_name=table_name,
             )
+
+        # 测试需要, 如果 batch_size > max_limit, 则更新 batch_size 为 max_limit
+        if max_limit is not None and batch_size > max_limit:
+            HBASE_LOGGER.warning(
+                f"批次大小 {batch_size} 大于最大限制 {max_limit}, 调整批次大小为 {max_limit}"
+            )
+            batch_size = max_limit
 
         # 先查询范围内有多少条数据, 大于 1000 的话要分批获取, <= 1000 的话直接获取
         rows_in_timerage = self.count_rows_with_timerage_via_ssh(
@@ -1184,7 +1195,9 @@ class HBaseAPI:
         all_rows: list[HBaseRow] = []
         commands = []  # 用于存储每批次的命令
         row_counts = 0  # 用于记录总行数
-        start_row_key = None  # 用于记录每批次的起始行键
+        start_row_key = start_row_key # 用于记录每批次的起始行键
+        last_row_key = None  # 用于记录最后一条数据在 hbase 中下一条数据的行键
+
         index = 1  # 批次计数器
 
         current_time = time.time()
@@ -1232,15 +1245,55 @@ class HBaseAPI:
             start_row_key = current_result.rows[-1].row_key
             index += 1
 
+            # 如果设置了最大行数限制，检查是否超过限制
+            if max_limit is not None and row_counts >= max_limit:
+                HBASE_LOGGER.info(
+                    f"已达到最大行数限制 {max_limit}，停止获取更多数据"
+                )
+                break
+
         execution_time = time.time() - current_time
         HBASE_LOGGER.info(
             f"获取表 {table_name} 在时间范围 [{start_datetime}, {end_datetime}] 内的所有数据完成, 共获取到 {len(all_rows)} 条数据, 批次大小为 {batch_size}, 总耗时: {execution_time:.2f} 秒"
         )
         # 判断当前获取到的行数是否和最开始查询的行数一致
         if row_counts != rows_in_timerage:
-            HBASE_LOGGER.warning(
-                f"获取到的行数 {row_counts} 与最开始查询的行数 {rows_in_timerage} 不一致, 可能是因为数据在获取过程中发生了变化"
-            )
+            if max_limit is not None:
+                if row_counts == max_limit:
+                    HBASE_LOGGER.warning(
+                        f"获取到的行数 {row_counts} 超过了最大限制 {max_limit}, 停止获取更多数据, 开始获取 Hbase 中下一条数据的行键以便后继续获取数据"
+                    )
+                    # 获取 last_row_key, 从当前的 all_rows 中获取最后一条数据的行键查询数据库中的后续 2 条数据
+                    tmp_result = self.get_data_with_timerage_via_ssh(
+                        table_name=table_name,
+                        start_datetime=start_datetime,
+                        end_datetime=end_datetime,
+                        start_row_key=all_rows[-1].row_key,
+                        batch_size=2,
+                    )
+                    if tmp_result.success and tmp_result.rows:
+                        last_row_key = tmp_result.rows[-1].row_key
+                        HBASE_LOGGER.info(
+                            f"当前获取到的最后一条数据在 hbase 中的下一条数据的行键为 {last_row_key}, 可以用于后续继续获取数据"
+                        )
+                    else:
+                        HBASE_LOGGER.error(
+                            f"获取最后一条数据的行键失败, 当前 last_row_key 将为 None, 理论上不应该出现这种情况, 若程序运行到此处, 请手动调试程序排查错误"
+                        )
+                        last_row_key = None
+                elif row_counts < max_limit:
+                    if start_row_key is None:
+                        HBASE_LOGGER.warning(
+                            f"当前并没有设置起始行键, 且设置了最大获取限制 {max_limit}, 当前数据并没有达到 {max_limit} 条, 程序出现异常, 可能是因为数据在获取过程中发生了变化, 请手动调试检查"
+                        )
+                    else:
+                        HBASE_LOGGER.info(
+                            f"当前获取到的行数 {row_counts} 小于最大限制 {max_limit}, 且设置了 起始行键 {start_row_key}, 理论上已经获取了所有数据, 请进行核对"
+                        )
+            else:
+                HBASE_LOGGER.warning(
+                    f"获取到的行数 {row_counts} 与最开始查询的行数 {rows_in_timerage} 不一致, 可能是因为数据在获取过程中发生了变化, 请手动调试程序排查"
+                )
         else:
             HBASE_LOGGER.info(
                 f"获取到的行数 {row_counts} 与最开始查询的行数 {rows_in_timerage} 一致"
@@ -1253,6 +1306,7 @@ class HBaseAPI:
             command=commands,
             row_count=row_counts,
             execution_time=execution_time,
+            last_row_key=last_row_key,  
         )
 
     def get_data_with_timerage_via_ssh(

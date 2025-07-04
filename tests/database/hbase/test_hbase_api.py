@@ -261,10 +261,10 @@ def test_get_data_with_timerage_via_ssh():
     # end_datetime = datetime(2025, 6, 19, 15, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
 
     # 开始时间为北京时间 2025.6.19 15:00:00
-    # start_datetime = datetime(2025, 6, 19, 15, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    start_datetime = datetime(2025, 6, 19, 15, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
 
-    # 结束时间为北京时间 2025.6.19 16:30:00
-    # end_datetime = datetime(2025, 6, 19, 16, 30, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 结束时间为北京时间 2025.6.19 16:30:00 (182257 rows) Took 220.7019 seconds
+    end_datetime = datetime(2025, 6, 19, 16, 30, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
     # 结束时间为北京时间 2025.6.19 15:45:00
     # end_datetime = datetime(2025, 6, 19, 15, 45, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
     # 结束时间为北京时间 2025.6.19 15:22:30
@@ -283,13 +283,13 @@ def test_get_data_with_timerage_via_ssh():
     # end_datetime = datetime(2025, 6, 19, 15, 37, 00, tzinfo=ZoneInfo("Asia/Shanghai"))
 
     # 开始时间为北京时间 2025.6.19 15:37:00
-    start_datetime = datetime(2025, 6, 19, 15, 37, 00, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # start_datetime = datetime(2025, 6, 19, 15, 37, 00, tzinfo=ZoneInfo("Asia/Shanghai"))
     # 结束时间为北京时间 2025.6.19 15:40:00
     # end_datetime = datetime(2025, 6, 19, 15, 40, 00, tzinfo=ZoneInfo("Asia/Shanghai"))
     # 结束时间为北京时间 2025.6.19 15:38:39
     # end_datetime = datetime(2025, 6, 19, 15, 38, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 结束时间为北京时间 2025.6.19 15:37:45
-    end_datetime = datetime(2025, 6, 19, 15, 37, 45, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 结束时间为北京时间 2025.6.19 15:37:45 (12098 rows)
+    # end_datetime = datetime(2025, 6, 19, 15, 37, 45, tzinfo=ZoneInfo("Asia/Shanghai"))
 
     # 测试全量获取数据
     # result = hbase.get_data_with_timerage_via_ssh(
@@ -314,20 +314,52 @@ def test_get_data_with_timerage_via_ssh():
     # )
 
     # 测试分批全量获取数据
+    # result = hbase.get_data_with_timerage_batches_via_ssh(
+    #     table_name="cloud-whoisxml-whois-data",
+    #     start_datetime=start_datetime,
+    #     end_datetime=end_datetime,
+    # )
+
+    # 测试分批全量获取数据(包含 max_limit)
     result = hbase.get_data_with_timerage_batches_via_ssh(
         table_name="cloud-whoisxml-whois-data",
         start_datetime=start_datetime,
         end_datetime=end_datetime,
+        # max_limit=100000,  # 设置最大行数限制，避免过多数据导致程序崩溃
+        # max_limit=10000,  # 设置最大行数限制，避免过多数据导致程序崩溃
+        max_limit=3,  # 设置最大行数限制，避免过多数据导致程序崩溃
     )
 
     if result.success:
         SUMMER_MODULES_TEST_LOGGER.info(
             f"成功获取 {len(result.rows)} 行数据，表名: {result.table_name}"
         )
-        # for row in result.rows:
-        #     SUMMER_MODULES_TEST_LOGGER.info(
-        #         f"行键: {row.row_key}, 列数: {len(row.columns)}"
-        #     )
+        for row in result.rows:
+            SUMMER_MODULES_TEST_LOGGER.info(
+                f"行键: {row.row_key}, 列数: {len(row.columns)}"
+            )
+    else:
+        SUMMER_MODULES_TEST_LOGGER.error(f"获取数据失败: {result.error_message}")
+
+    # 测试分批全量获取数据(包含 max_limit)
+    result = hbase.get_data_with_timerage_batches_via_ssh(
+        table_name="cloud-whoisxml-whois-data",
+        start_datetime=start_datetime,
+        end_datetime=end_datetime,
+        # max_limit=100000,  # 设置最大行数限制，避免过多数据导致程序崩溃
+        # max_limit=10000,  # 设置最大行数限制，避免过多数据导致程序崩溃
+        start_row_key="0.time.chameleoncloud.co.uk-9223370286645797690",
+        max_limit=3,  # 设置最大行数限制，避免过多数据导致程序崩溃
+    )
+
+    if result.success:
+        SUMMER_MODULES_TEST_LOGGER.info(
+            f"成功获取 {len(result.rows)} 行数据，表名: {result.table_name}"
+        )
+        for row in result.rows:
+            SUMMER_MODULES_TEST_LOGGER.info(
+                f"行键: {row.row_key}, 列数: {len(row.columns)}"
+            )
     else:
         SUMMER_MODULES_TEST_LOGGER.error(f"获取数据失败: {result.error_message}")
 
@@ -337,7 +369,71 @@ def test_get_data_with_timerage_via_ssh():
     SUMMER_MODULES_TEST_LOGGER.info(f"获取数据测试总耗时: {execution_time:.2f} 秒")
 
 
+# 测试批量获取的改进方案
+def test_get_data_with_timerage_batches_via_ssh_imporve():
+    """测试通过 SSH 分批获取指定时间范围的数据的功能"""
+
+    start_time = time.time()
+    SUMMER_MODULES_TEST_LOGGER.info("开始测试获取数据功能")
+    hbase = HBaseAPI(
+        host=HBASE_HOST,
+        port=HBASE_PORT,
+        username=HBASE_USERNAME,
+        password=HBASE_PASSWORD,
+    )
+
+    # 开始时间为北京时间 2025.6.19 15:00:00
+    start_datetime = datetime(2025, 6, 19, 15, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+    # 结束时间为北京时间 2025.6.19 16:30:00 (182257 rows) Took 220.7019 seconds
+    end_datetime = datetime(2025, 6, 19, 16, 30, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+    # 测试分批全量获取数据(包含 max_limit)
+    result1 = hbase.get_data_with_timerage_batches_via_ssh(
+        table_name="cloud-whoisxml-whois-data",
+        start_datetime=start_datetime,
+        end_datetime=end_datetime,
+        # max_limit=100000,  # 设置最大行数限制，避免过多数据导致程序崩溃
+        # max_limit=10000,  # 设置最大行数限制，避免过多数据导致程序崩溃
+        max_limit=3,  # 设置最大行数限制，避免过多数据导致程序崩溃
+    )
+
+    if result1.success:
+        SUMMER_MODULES_TEST_LOGGER.info(
+            f"成功获取 {len(result1.rows)} 行数据，表名: {result1.table_name}"
+        )
+    else:
+        SUMMER_MODULES_TEST_LOGGER.error(f"获取数据失败: {result1.error_message}")
+
+    # 测试分批全量获取数据(包含 max_limit)
+    result2 = hbase.get_data_with_timerage_batches_via_ssh(
+        table_name="cloud-whoisxml-whois-data",
+        start_datetime=start_datetime,
+        end_datetime=end_datetime,
+        # max_limit=100000,  # 设置最大行数限制，避免过多数据导致程序崩溃
+        # max_limit=10000,  # 设置最大行数限制，避免过多数据导致程序崩溃
+        start_row_key="0.time.chameleoncloud.co.uk-9223370286645797690",
+        max_limit=3,  # 设置最大行数限制，避免过多数据导致程序崩溃
+    )
+
+    if result2.success:
+        SUMMER_MODULES_TEST_LOGGER.info(
+            f"成功获取 {len(result2.rows)} 行数据，表名: {result2.table_name}"
+        )
+    else:
+        SUMMER_MODULES_TEST_LOGGER.error(f"获取数据失败: {result2.error_message}")
+
+    SUMMER_MODULES_TEST_LOGGER.info("两次获取的所有数据的行键:")
+    for row in result1.rows + result2.rows:
+        SUMMER_MODULES_TEST_LOGGER.info(f"{row.row_key}")
+
+    SUMMER_MODULES_TEST_LOGGER.info(
+        f"第一次获取数据返回的 last_row_key: {result1.last_row_key}, 第二次获取数据返回的 last_row_key: {result2.last_row_key}"
+    )
+
+
 if __name__ == "__main__":
     # run_safe_tests()
     # test_count_rows_with_timerage_via_ssh()
-    test_get_data_with_timerage_via_ssh()
+    # test_get_data_with_timerage_via_ssh()
+    test_get_data_with_timerage_batches_via_ssh_imporve()
