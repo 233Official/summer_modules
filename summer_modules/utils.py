@@ -12,7 +12,7 @@ from typing import Callable, Tuple, Union, Optional, Any, Type, Dict
 from . import summer_modules_logger
 
 
-def write_dict_to_json_file(data: dict, filepath: Path, one_line=True):
+def write_dict_to_json_file(data: dict, filepath: Path, one_line: bool = True):
     """将 dict 写入到 json 文件
     Args:
         data (dict): 要写入的 dict
