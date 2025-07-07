@@ -15,3 +15,5 @@ tmp
 .DS_Store
 # poetry 构建目录
 dist
+# 虚拟环境
+.venv
