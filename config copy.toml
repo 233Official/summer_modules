@@ -22,3 +22,7 @@ hostname = "localhost"
 username = "root"
 password = "root"
 port = 22
+
+[hbase_ssh_output_test]
+src_filepath = ""
+out_json_filepath = ""

@@ -1,6 +1,16 @@
-import re
+"""
+解析 HBase Shell 扫描命令的输出
+"""
 
+import re
+from pathlib import Path
+import traceback
 from typing import Any, Optional, Union
+
+# 内存监控
+import json
+import os
+from pympler import asizeof
 
 from summer_modules.database.hbase import HBASE_LOGGER
 from summer_modules.database.hbase.hbase_model import (
@@ -9,6 +19,7 @@ from summer_modules.database.hbase.hbase_model import (
     HBaseScanResult,
     ReconstructTruncatedLinesResult,
 )
+from summer_modules.utils import write_dict_to_json_file
 
 
 # 解析 HBase Shell 扫描命令的输出
@@ -534,3 +545,278 @@ def reconstruct_single_data_row(stand_line: list[str]) -> str:
 
     # HBASE_LOGGER.debug(f"重建的单个数据行: {reconstructed_line}")
     return reconstructed_line
+
+
+# 解析手动全量数据导出文件并转为 json
+def parse_manual_full_export_file_to_json(
+    src_filepath: Path,
+    out_json_filepath: Optional[Path] = None,
+    data_size_limit: Optional[int] = None,
+) -> Optional[Path]:
+    """解析手动全量数据导出文件并转为 JSON
+
+    Args:
+        src_filepath: 手动全量数据导出文件路径
+        out_json_filepath: 输出的 JSON 文件路径, 如果为 None 则默认与输入文件同名但扩展名为 .json
+        data_size_limit(developing......): (还有 bug 没有解完, 待后续优化, 暂时不要用这个参数)数据大小限制, 每当数据超过此限制则写入 JSON 文件并清空内存, 默认 None 不限制大小
+    Returns:
+        Optional[Path]: 输出的 JSON 文件路径, 如果转换失败则返回 None
+    """
+    if not src_filepath.exists() or not src_filepath.is_file():
+        HBASE_LOGGER.error(f"输入文件不存在或不是文件: {src_filepath}")
+        return None
+
+    if out_json_filepath is None:
+        out_json_filepath = src_filepath.with_suffix(".json")
+
+    # 内存监控
+
+    rows = {}
+
+    try:
+        # 一般全量导出文件都比较大, 因此这里边读边写, 不做一次性读取
+        with open(src_filepath, "r", encoding="utf-8") as infile, open(
+            out_json_filepath, "w", encoding="utf-8"
+        ) as outfile:
+            line_num = 1  # 行号, 从1开始
+            find_start_flag = False  # 是否找到 ROW  COLUMN+CELL 的格式
+            start_line_num = 0  # 起始行号, 用于记录找到起始行的行号
+            find_end_flag = False  # 是否找到行数统计行 xxx row(s)
+            end_line_num = 0  # 结束行号, 用于记录找到结束行的行号
+            part_index = (
+                0  # 如果数据量过大, 则分多次写入, 这个变量用于记录当前是第几次写入
+            )
+            part_manifest = {
+                "total_parts": 0,  # 总共的分块数
+                "row_num": 0,  # 当前分块的行数
+                "part_filepaths": [],  # 当前分块的文件路径列表
+            }  # 用于记录每次写入的文件名和行数和块数
+            every_row_column_num = 0  # 每行数据的列数
+            for line in infile:
+                if line_num % 1000 == 0:
+                    # 每1000行输出一次日志
+                    HBASE_LOGGER.debug(f"正在处理第 {line_num} 行....")
+                if not find_start_flag:
+                    # 如果当前行匹配到 ROW  COLUMN+CELL 的格式, 则标记找到起始行
+                    if re.match(r"^\s*ROW\s+COLUMN\+CELL", line):
+                        find_start_flag = True
+                        HBASE_LOGGER.info(
+                            f"找到起始行: {line.strip()} (行号: {line_num})"
+                        )
+                        start_line_num = line_num
+                        line_num += 1
+                        continue
+                    else:
+                        # 如果当前行不是起始行, 则跳过
+                        line_num += 1
+                        HBASE_LOGGER.debug(
+                            f"跳过非起始行: {line.strip()} (行号: {line_num})"
+                        )
+                        continue
+                # 如果当前已找到起始行但未找到结束行
+                elif find_start_flag and not find_end_flag:
+                    # 如果当前行匹配到行数统计行 xxx row(s), 则标记找到结束行
+                    if re.match(r"^\s*\d+\s+row\(s\)", line):
+                        find_end_flag = True
+                        HBASE_LOGGER.info(
+                            f"找到结束行: {line.strip()} (行号: {line_num})"
+                        )
+                        end_line_num = line_num
+                        line_num += 1
+                    # 如果当前行是数据行, 则解析并添加到 rows 中
+                    elif re.match(r"^\s*[^\s]+", line):
+                        # 提取行键和列信息
+                        parts = line.strip().split(" ", 1)
+                        if len(parts) < 2:
+                            HBASE_LOGGER.warning(
+                                f"跳过无效数据行: {line.strip()} (行号: {line_num})"
+                            )
+                            line_num += 1
+                        row_key = parts[0].strip()
+                        column_info = parts[1].strip()
+                        # 进一步提取 column 信息 列族, 列限定符, 时间戳和数值
+                        column_parts = column_info.split(", ", maxsplit=2)
+                        if len(column_parts) < 3:
+                            HBASE_LOGGER.warning(
+                                f"跳过无效列信息: {column_info} (行号: {line_num})"
+                            )
+                            line_num += 1
+                            continue
+                        if len(column_parts) > 3:
+                            HBASE_LOGGER.warning(
+                                f"列信息格式异常, 可能包含多余的部分: {column_info} (行号: {line_num})"
+                            )
+                            line_num += 1
+                            continue
+                        column_info = column_parts[0].strip()
+                        timestamp_info = column_parts[1].strip()
+                        value_info = column_parts[2].strip()
+                        # 提取列族和列限定符
+                        column_match = re.match(
+                            r"column=([^\s:]+):([^\s]+)", column_info
+                        )
+                        if not column_match:
+                            HBASE_LOGGER.warning(
+                                f"跳过无效列信息格式: {column_info} (行号: {line_num})"
+                            )
+                            line_num += 1
+                            continue
+                        column_family = column_match.group(1).strip()
+                        column_qualifier = column_match.group(2).strip()
+                        # 提取时间戳
+                        timestamp_match = re.match(r"timestamp=(\d+)", timestamp_info)
+                        if not timestamp_match:
+                            HBASE_LOGGER.warning(
+                                f"跳过无效时间戳格式: {timestamp_info} (行号: {line_num})"
+                            )
+                            line_num += 1
+                            continue
+                        timestamp = int(timestamp_match.group(1).strip())
+                        # 提取数值
+                        value_match = re.match(r"value=(.*)", value_info)
+                        if not value_match:
+                            HBASE_LOGGER.warning(
+                                f"跳过无效数值格式: {value_info} (行号: {line_num})"
+                            )
+                            line_num += 1
+                            continue
+                        value = value_match.group(1).strip()
+
+                        # 将行键和列信息添加到 rows 中
+                        if row_key not in rows:
+                            rows[row_key] = {}
+                        if column_family not in rows[row_key]:
+                            rows[row_key][column_family] = {}
+                        rows[row_key][column_family][column_qualifier] = {
+                            "timestamp": timestamp,
+                            "value": value,
+                        }
+                        line_num += 1
+
+                        # 判断当前 rows 的大小是否超过限制, 如果超过则写入 JSON 文件并清空内存, 每 10000行检查一次, 因为占用检查很耗时间
+                        if data_size_limit is not None:
+                            if line_num % 10000 != 0:
+                                continue
+                            if part_index == 0:
+                                first_row_key = next(iter(rows))
+                                every_row_column_num = sum(
+                                    len(rows[first_row_key][column_family])
+                                    for column_family in rows[first_row_key]
+                                )
+
+                            current_data_size = asizeof.asizeof(rows)
+                            if current_data_size > data_size_limit:
+                                HBASE_LOGGER.info(
+                                    f"当前数据大小 {current_data_size} 字节, 超过限制 {data_size_limit} 字节, 写入 JSON 文件并清空内存"
+                                )
+
+                                # 如果 rows 的最后一条数据的列数并不完整则需要暂存
+                                current_row_column_num = sum(
+                                    len(rows[row_key][column_family])
+                                    for column_family in rows[row_key]
+                                )
+                                stash_rows = {}
+                                if current_row_column_num < every_row_column_num:
+                                    stash_rows[row_key] = rows[row_key]
+                                    # 从 rows 中删除当前行
+                                    del rows[row_key]
+                                elif current_row_column_num == every_row_column_num:
+                                    pass
+                                else:
+                                    HBASE_LOGGER.error(
+                                        f"当前行 {row_key} 的列数 {current_row_column_num} 大于 每行列数 {every_row_column_num}, 程序存在问题, 请手动调试检查"
+                                    )
+
+                                part_index_str = f"{part_index:03d}"  # 格式化为三位数
+                                out_json_filepath_part = f"{out_json_filepath.stem}_part_{part_index_str}.json"
+                                out_json_filepath_part = out_json_filepath.with_name(
+                                    out_json_filepath_part
+                                )
+                                write_dict_to_json_file(
+                                    data=rows,
+                                    filepath=Path(out_json_filepath_part),
+                                    one_line=True,
+                                )
+                                part_index += 1
+                                part_manifest["part_filepaths"].append(
+                                    out_json_filepath_part.__str__()
+                                )
+                                part_manifest["row_num"] += len(rows)
+                                rows.clear()  # 清空 rows, 但保留 stash_rows
+                                rows = stash_rows  # 清空 rows, 但保留 stash_rows
+                    else:
+                        # 如果当前行不是数据行, 则跳过
+                        HBASE_LOGGER.warning(
+                            f"跳过非数据行: {line.strip()} (行号: {line_num})"
+                        )
+                        line_num += 1
+                # 如果当前已找到起始行和结束行则将 rows 写入 JSON 文件
+                elif find_start_flag and find_end_flag:
+                    if data_size_limit and part_index > 0:
+                        # 如果数据量过大, 则写入 JSON 文件并清空内存
+                        part_index_str = f"{part_index:03d}"  # 格式化为三位数
+                        out_json_filepath_part = (
+                            f"{out_json_filepath.stem}_part_{part_index_str}.json"
+                        )
+                        out_json_filepath_part = out_json_filepath.with_name(
+                            out_json_filepath_part
+                        )
+                        write_dict_to_json_file(
+                            data=rows,
+                            filepath=Path(out_json_filepath_part),
+                            one_line=True,
+                        )
+                        part_index += 1
+                        part_manifest["part_filepaths"].append(
+                            out_json_filepath_part.__str__()
+                        )
+                        part_manifest["row_num"] += len(rows)
+                        # rows.clear() # 最后一次写入不清空内存, 因为最后一次写入可能是全部数据
+                    else:
+                        write_dict_to_json_file(
+                            data=rows, filepath=out_json_filepath, one_line=False
+                        )
+                        one_line_out_json_filepath = out_json_filepath.with_suffix(
+                            ".one_line.json"
+                        )
+                        write_dict_to_json_file(
+                            data=rows,
+                            filepath=one_line_out_json_filepath,
+                            one_line=True,
+                        )
+
+        first_row_key = next(iter(rows))
+        every_row_column_num = sum(
+            len(rows[first_row_key][column_family])
+            for column_family in rows[first_row_key]
+        )
+
+        if data_size_limit and part_index > 0:
+            lines_from_json = part_manifest["row_num"]
+            write_dict_to_json_file(
+                data=part_manifest,
+                filepath=out_json_filepath.with_suffix(".manifest.json"),
+                one_line=False,
+            )
+        else:
+            lines_from_json = len(rows)
+
+        HBASE_LOGGER.info(
+            f"解析完成, 共找到 {len(rows)} 行数据, 每行包含 {every_row_column_num} 列"
+        )
+        lines_from_line_num = (end_line_num - start_line_num - 1) / every_row_column_num
+        if lines_from_line_num != lines_from_json:
+            HBASE_LOGGER.warning(
+                f"行数不匹配: 起始行到结束行的行数为 {lines_from_line_num}, 解析到的行数为 {lines_from_json}"
+            )
+        else:
+            HBASE_LOGGER.info(
+                f"行数匹配: 起始行号 {start_line_num}, 结束行号 {end_line_num}, "
+                f"起始行到结束行之间的数据行数为 {lines_from_line_num}, 解析到的行数为 {lines_from_json}"
+            )
+        HBASE_LOGGER.info(f"转换成功，输出文件: {out_json_filepath}")
+        return out_json_filepath
+    except Exception as e:
+        stack_trace = traceback.format_exc()
+        HBASE_LOGGER.error(f"转换失败: {e}, 堆栈信息:\n{stack_trace}")
+        return None
