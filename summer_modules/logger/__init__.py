@@ -25,7 +25,7 @@ class TimedRotatingFileHandler(RotatingFileHandler):
     def doRollover(self):
         if self.stream:
             self.stream.close()
-            # self.stream = None
+            self.stream = None  # type: ignore
 
         current_time = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
         # 拼接原先的文件名(不包含后缀) + 时间 + .log 后缀
@@ -38,27 +38,11 @@ class TimedRotatingFileHandler(RotatingFileHandler):
             os.rename(self.baseFilename, new_log_filename)
 
         if self.backupCount > 0:
-            for s in self._getFilesToDelete():
+            for s in self.getFilesToDelete():  # type: ignore
                 os.remove(s)
 
         if not self.delay:
             self.stream = self._open()
-            
-    def _getFilesToDelete(self):
-        """
-        Determine the files to delete when rolling over.
-        """
-        dir_name, base_name = os.path.split(self.baseFilename)
-        file_names = os.listdir(dir_name)
-        result = []
-        prefix = os.path.splitext(base_name)[0] + "."
-        for fileName in file_names:
-            if fileName.startswith(prefix) and fileName.endswith(".log"):
-                result.append(os.path.join(dir_name, fileName))
-        result.sort()
-        if len(result) > self.backupCount:
-            result = result[:len(result) - self.backupCount]
-        return result
 
 
 class CustomFormatter(logging.Formatter):
