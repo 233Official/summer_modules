@@ -11,11 +11,20 @@ repo_path = "xxxx"
 gitlab_base_url = "https://gitlab.com"
 gitlab_repo_image_base_path = "xxx/xxx"
 
-[hbase]
+[database]
+[databse.hbase]
 host = "localhost"
 port = 8080
 username = "hbase"
 password = "hbase"
+
+[database.postgres]
+host = "localhost"
+port = 5432
+username = "postgres"
+password = "postgres"
+database = "summer_modules"
+
 
 [ssh]
 hostname = "localhost"
