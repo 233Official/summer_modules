@@ -39,6 +39,25 @@ def read_json_file_to_dict(filepath: Path):
     return data
 
 
+# 从 jsonl 文件中读取数据到 list
+def read_jsonl_file_to_list(filepath: Path) -> list | None:
+    """读取 jsonl 文件到 list
+    Args:
+        filepath (Path): 文件路径
+    Returns:
+        list: 读取的 list
+    """
+    data = []
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            for line in f:
+                data.append(json.loads(line.strip()))
+    except Exception as e:
+        summer_modules_logger.error(f"读取 {filepath} 时出错: {e}")
+        return None
+    return data
+
+
 def write_list_to_txt_file(data: list, filepath: Path):
     """将 list 写入到 txt 文件
     Args:
@@ -62,12 +81,18 @@ def read_txt_file_to_list(filepath: Path):
     return [line.strip() for line in data]
 
 
-# 获取所有JSON文件列表
-def get_all_json_files(directory: Path) -> list:
+def get_files_by_extension(
+    directory: Path, extension: str, recursive: bool = True
+) -> list:
     """
-    获取目录下所有JSON文件的路径
-    :param directory: 目录路径
-    :return: JSON文件路径列表
+    获取目录下所有指定后缀的文件路径
+
+    Args:
+        directory (Path): 目录路径
+        extension (str): 文件后缀名(不带点)
+        recursive (bool): 是否递归查找子目录，默认为 True
+    Returns:
+        list: 指定后缀的文件路径列表
     """
     if not directory.exists():
         summer_modules_logger.error(f"目录不存在: {directory}")
@@ -78,16 +103,78 @@ def get_all_json_files(directory: Path) -> list:
         return []
 
     try:
-        # 使用list comprehension直接获取所有JSON文件
-        json_files = list(directory.glob("**/*.json"))
+        # 规范化扩展名格式(确保以.开头)
+        if not extension.startswith("."):
+            extension = f".{extension}"
+
+        # 根据是否递归选择不同的匹配模式
+        pattern = f"**/*{extension}" if recursive else f"*{extension}"
+
+        # 获取匹配的文件
+        files = list(directory.glob(pattern))
         summer_modules_logger.info(
-            f"在 {directory} 中找到 {len(json_files)} 个JSON文件"
+            f"在 {directory} 中找到 {len(files)} 个 {extension} 文件"
         )
-        return json_files
+        return files
     except Exception as e:
         stre_trace = traceback.format_exc()
-        summer_modules_logger.error(f"获取JSON文件时出错: {e}\n{stre_trace}")
+        summer_modules_logger.error(f"获取 {extension} 文件时出错: {e}\n{stre_trace}")
         return []
+
+
+def get_all_json_files(directory: Path) -> list:
+    """
+    获取目录下所有JSON文件的路径
+
+    Args:
+        directory (Path): 目录路径
+    Returns:
+        list: JSON文件路径列表
+    """
+    return get_files_by_extension(directory, "json")
+
+
+# 根据文件名前缀截断文件名为(前缀+数字+后缀)的格式, 根据数字的大小进行排序返回文件名列表
+def get_sorted_filepaths_by_prefix(
+    filepaths: list[Path], prefix: str, ASCE: bool = True
+):
+    """
+    根据文件名前缀截断文件名为(前缀+数字+后缀)的格式, 根据数字的大小进行排序返回文件名列表
+
+    Args:
+        filepaths (list): 文件路径列表
+        prefix (str): 文件名前缀
+        ASCE (bool): 是否升序排序，默认为 True, 如果要降序排序, 设置为 False
+    Returns:
+        list: 排序后的文件名列表
+    """
+
+    def extract_number(filepath: Path, prefix: str) -> int:
+        """
+        从文件名中提取数字部分
+        Args:
+            filepath (Path): 文件路径
+            prefix (str): 文件名前缀
+        Returns:
+            int: 提取的数字，如果没有找到数字则返回0
+        """
+        filename = filepath.name
+        # 截断前缀
+        if filename.startswith(prefix):
+            number_part = filename[len(prefix) :]
+            # 提取数字部分
+            number_str = "".join(filter(str.isdigit, number_part))
+            return int(number_str) if number_str else 0
+        return 0
+
+    # 提取数字并排序
+    sorted_filepaths = sorted(
+        filepaths,
+        key=lambda x: extract_number(x, prefix),
+        reverse=not ASCE,  # 根据ASCE参数决定升序或降序
+    )
+    # 返回排序后的文件路径列表
+    return sorted_filepaths
 
 
 def find_chinese_font():
