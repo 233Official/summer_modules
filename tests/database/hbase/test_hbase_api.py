@@ -224,11 +224,47 @@ def test_count_rows_with_timerage_via_ssh():
     )
 
     # 开始时间为北京时间 2025.6.19 12:00:00
-    start_datetime = datetime(2025, 6, 19, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # start_datetime = datetime(2025, 6, 19, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.20 00:00:00
+    # start_datetime = datetime(2025, 6, 20, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.20 3:00:00
+    # start_datetime = datetime(2025, 6, 20, 3, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.20 4:30:00 50345 rows
+    # start_datetime = datetime(2025, 6, 20, 4, 30, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.20 5:00:00 50345 rows
+    # start_datetime = datetime(2025, 6, 20, 5, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.20 5:05:00 9630 row(s)
+    # start_datetime = datetime(2025, 6, 20, 5, 5, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.20 5:10:00 0 row(s)
+    # start_datetime = datetime(2025, 6, 20, 5, 10, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.20 5:13:00 0 row(s)
+    start_datetime = datetime(2025, 6, 20, 5, 13, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.20 5:15:00 0 row(s)
+    # start_datetime = datetime(2025, 6, 20, 5, 15, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.20 5:30:00 0 row(s)
+    # start_datetime = datetime(2025, 6, 20, 5, 30, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.20 6:00:00
+    # start_datetime = datetime(2025, 6, 20, 6, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.20 12:00:00
+    # start_datetime = datetime(2025, 6, 20, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.21 00:00:00
+    # start_datetime = datetime(2025, 6, 21, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.22 00:00:00
+    # start_datetime = datetime(2025, 6, 22, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.24 00:00:00
+    # start_datetime = datetime(2025, 6, 24, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.27 00:00:00
+    # start_datetime = datetime(2025, 6, 27, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.7.4 00:00:00
+    # start_datetime = datetime(2025, 7, 4, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+
     # 结束时间为北京时间 2025.6.20 00:00:00
     # end_datetime = start_datetime + timedelta(days=1)
     # 结束时间为北京时间 2025.6.19 18:00:00
-    end_datetime = datetime(2025, 6, 19, 18, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # end_datetime = datetime(2025, 6, 19, 18, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 结束时间为北京时间 2025.7.11 00:00:00
+    end_datetime = datetime(2025, 7, 11, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+
 
     result = hbase.count_rows_with_timerage_via_ssh(
         table_name="cloud-whoisxml-whois-data",
@@ -450,8 +486,8 @@ def test_reverse_timestamp_to_normal():
     )
 
 if __name__ == "__main__":
-    # run_safe_tests()
-    # test_count_rows_with_timerage_via_ssh()
-    # test_get_data_with_timerage_via_ssh()
-    # test_get_data_with_timerage_batches_via_ssh_imporve()
-    test_reverse_timestamp_to_normal()
+    # run_safe_tests() # 运行安全的只读测试
+    test_count_rows_with_timerage_via_ssh() # 测试通过 SSH 获取指定时间范围的数据的功能
+    # test_get_data_with_timerage_via_ssh() # 测试通过 SSH 获取指定时间范围的数据的功能
+    # test_get_data_with_timerage_batches_via_ssh_imporve() # 测试通过 SSH 分批获取指定时间范围的数据的功能
+    # test_reverse_timestamp_to_normal() # 测试将时间戳转换为正常时间
