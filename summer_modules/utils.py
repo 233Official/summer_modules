@@ -58,6 +58,23 @@ def read_jsonl_file_to_list(filepath: Path) -> list | None:
     return data
 
 
+# 将字典列表写入到 jsonl 文件
+def write_dict_list_to_jsonl_file(data: list[dict], filepath: Path):
+    """将字典列表写入到 jsonl 文件
+    Args:
+        data (list[dict]): 要写入的字典列表
+        filepath (Path): 文件路径
+    """
+    try:
+        with open(filepath, "w", encoding="utf-8") as f:
+            for item in data:
+                json.dump(item, f, ensure_ascii=False)
+                f.write("\n")
+    except Exception as e:
+        summer_modules_logger.error(f"写入 {filepath} 时出错: {e}")
+        raise e
+
+
 def write_list_to_txt_file(data: list, filepath: Path):
     """将 list 写入到 txt 文件
     Args:
