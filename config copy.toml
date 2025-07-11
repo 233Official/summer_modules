@@ -12,7 +12,7 @@ gitlab_base_url = "https://gitlab.com"
 gitlab_repo_image_base_path = "xxx/xxx"
 
 [database]
-[databse.hbase]
+[database.hbase]
 host = "localhost"
 port = 8080
 username = "hbase"

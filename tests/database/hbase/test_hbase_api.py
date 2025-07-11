@@ -20,10 +20,11 @@ from summer_modules.database.hbase.hbase.ttypes import (
 from tests import SUMMER_MODULES_TEST_LOGGER, CONFIG
 
 # 从配置文件获取连接信息
-HBASE_HOST = CONFIG["hbase"]["host"]
-HBASE_PORT = CONFIG["hbase"]["port"]
-HBASE_USERNAME = CONFIG["hbase"]["username"]
-HBASE_PASSWORD = CONFIG["hbase"]["password"]
+HBASE_CONFIG = CONFIG["database"]["hbase"]
+HBASE_HOST = HBASE_CONFIG["host"]
+HBASE_PORT = HBASE_CONFIG["port"]
+HBASE_USERNAME = HBASE_CONFIG["username"]
+HBASE_PASSWORD = HBASE_CONFIG["password"]
 
 SUMMER_MODULES_TEST_LOGGER.setLevel(logging.INFO)
 
@@ -213,7 +214,7 @@ def run_safe_tests():
 
     return test_results
 
-
+# 测试通过 SSH 获取指定时间范围的数据的功能
 def test_count_rows_with_timerage_via_ssh():
     """测试通过 SSH 获取指定时间范围的数据的功能"""
     hbase = HBaseAPI(
@@ -224,40 +225,8 @@ def test_count_rows_with_timerage_via_ssh():
     )
 
     # 开始时间为北京时间 2025.6.19 12:00:00
-    # start_datetime = datetime(2025, 6, 19, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.6.20 00:00:00
-    # start_datetime = datetime(2025, 6, 20, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.6.20 3:00:00
-    # start_datetime = datetime(2025, 6, 20, 3, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.6.20 4:30:00 50345 rows
-    # start_datetime = datetime(2025, 6, 20, 4, 30, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.6.20 5:00:00 50345 rows
-    # start_datetime = datetime(2025, 6, 20, 5, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.6.20 5:05:00 9630 row(s)
-    # start_datetime = datetime(2025, 6, 20, 5, 5, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.6.20 5:10:00 0 row(s)
-    # start_datetime = datetime(2025, 6, 20, 5, 10, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.6.20 5:13:00 0 row(s)
-    start_datetime = datetime(2025, 6, 20, 5, 13, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.6.20 5:15:00 0 row(s)
-    # start_datetime = datetime(2025, 6, 20, 5, 15, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.6.20 5:30:00 0 row(s)
-    # start_datetime = datetime(2025, 6, 20, 5, 30, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.6.20 6:00:00
-    # start_datetime = datetime(2025, 6, 20, 6, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.6.20 12:00:00
-    # start_datetime = datetime(2025, 6, 20, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.6.21 00:00:00
-    # start_datetime = datetime(2025, 6, 21, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.6.22 00:00:00
-    # start_datetime = datetime(2025, 6, 22, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.6.24 00:00:00
-    # start_datetime = datetime(2025, 6, 24, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.6.27 00:00:00
-    # start_datetime = datetime(2025, 6, 27, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-    # 开始时间为北京时间 2025.7.4 00:00:00
-    # start_datetime = datetime(2025, 7, 4, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-
+    start_datetime = datetime(2025, 6, 19, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+ 
     # 结束时间为北京时间 2025.6.20 00:00:00
     # end_datetime = start_datetime + timedelta(days=1)
     # 结束时间为北京时间 2025.6.19 18:00:00
