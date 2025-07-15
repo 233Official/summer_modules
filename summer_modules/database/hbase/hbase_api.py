@@ -1031,6 +1031,71 @@ class HBaseAPI:
             self._reconnect()
             raise
 
+    # 查看最后一条数据的时间戳
+    @retry(max_retries=3, delay=5, exceptions=(Exception,))
+    def get_last_row_timestamp(self, table_name: str) -> Optional[int]:
+        """获取指定表最后一条数据的时间戳
+        调用 Thrift 接口获取表的最后一条数据的时间戳
+
+        Args:
+            table_name: 表名
+
+        Returns:
+            Optional[int]: 最后一条数据的时间戳（毫秒），如果表不存在或没有数据则返回 None
+        """
+        try:
+            if not self.table_exists(table_name):
+                HBASE_LOGGER.error(f"表 {table_name} 不存在")
+                return None
+
+            table_name_bytes = table_name.encode()
+            
+            # 使用 SSH 连接执行 HBase Shell 命令获取最后一条数据的时间戳
+            # 这样可以避免全表扫描，直接通过 HBase Shell 的优化查询获取
+            command = f"scan '{table_name}', {{REVERSED => true, LIMIT => 1}}"
+            
+            ssh_result = self.ssh_connection.execute_hbase_command(command)
+            if not ssh_result.success:
+                HBASE_LOGGER.error(
+                    f"通过 SSH 执行 HBase 命令失败: {ssh_result.error_message}"
+                    )
+                return None
+
+            output = ssh_result.output
+            if not output:
+                HBASE_LOGGER.error("SSH 执行 Hbase Shell 命令没有返回任何信息")
+                return None
+
+            # 解析输出获取时间戳
+            scan_result = parse_hbase_shell_scan_cmd_output(output)
+            if not scan_result.success:
+                HBASE_LOGGER.error(
+                    f"解析 HBase Shell 扫描命令输出失败: {scan_result.error_message}"
+                )
+                return None
+
+            if not scan_result.rows:
+                HBASE_LOGGER.info(f"表 {table_name} 没有数据")
+                return None
+
+            # 获取最后一行的最新时间戳
+            last_row = scan_result.rows[0]
+            latest_timestamp = 0
+            
+            # 遍历所有列，找到最新的时间戳
+            for column in last_row.columns:
+                if column.timestamp > latest_timestamp:
+                    latest_timestamp = column.timestamp
+            
+            HBASE_LOGGER.info(f"表 {table_name} 的最后一条数据时间戳: {latest_timestamp}")
+            return latest_timestamp
+
+        except Exception as e:
+            HBASE_LOGGER.error(f"获取表 {table_name} 最后一条数据时间戳时出错: {e}")
+            self._reconnect()
+            raise
+
+
     def calculate_reverse_timestamp(self, timestamp_ms: int) -> int:
         """计算反向时间戳
 
@@ -1043,7 +1108,8 @@ class HBaseAPI:
         JAVA_LONG_MAX = 9223372036854775807
         return JAVA_LONG_MAX - timestamp_ms
 
-    def reverse_timestamp_to_normal(self, reverse_timestamp: int) -> int:
+    @staticmethod
+    def reverse_timestamp_to_normal(reverse_timestamp: int) -> int:
         """将反向时间戳转换为正常时间戳
 
         Args:

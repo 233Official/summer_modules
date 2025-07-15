@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import time
 import logging
 
+from summer_modules.utils import retry, convert_timestamp_to_timezone_time
 from summer_modules.database.hbase.hbase_api import HBaseAPI
 from summer_modules.database.hbase.hbase.ttypes import (
     ColumnDescriptor,
@@ -214,6 +215,7 @@ def run_safe_tests():
 
     return test_results
 
+
 # 测试通过 SSH 获取指定时间范围的数据的功能
 def test_count_rows_with_timerage_via_ssh():
     """测试通过 SSH 获取指定时间范围的数据的功能"""
@@ -225,15 +227,19 @@ def test_count_rows_with_timerage_via_ssh():
     )
 
     # 开始时间为北京时间 2025.6.19 12:00:00
-    start_datetime = datetime(2025, 6, 19, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
- 
+    # start_datetime = datetime(2025, 6, 19, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.20 12:00:00
+    # start_datetime = datetime(2025, 6, 20, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+
     # 结束时间为北京时间 2025.6.20 00:00:00
     # end_datetime = start_datetime + timedelta(days=1)
     # 结束时间为北京时间 2025.6.19 18:00:00
     # end_datetime = datetime(2025, 6, 19, 18, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
     # 结束时间为北京时间 2025.7.11 00:00:00
-    end_datetime = datetime(2025, 7, 11, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # end_datetime = datetime(2025, 7, 11, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
 
+    start_datetime = datetime(2025, 7, 11, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    end_datetime = datetime(2025, 7, 15, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
 
     result = hbase.count_rows_with_timerage_via_ssh(
         table_name="cloud-whoisxml-whois-data",
@@ -387,11 +393,21 @@ def test_get_data_with_timerage_batches_via_ssh_imporve():
         password=HBASE_PASSWORD,
     )
 
+    # 开始时间为北京时间 2025.6.18 00:00:00
+    start_datetime = datetime(2025, 6, 18, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
     # 开始时间为北京时间 2025.6.19 15:00:00
-    start_datetime = datetime(2025, 6, 19, 15, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # start_datetime = datetime(2025, 6, 19, 15, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.20 5:06:00 0 row(s)
+    # start_datetime = datetime(2025, 6, 20, 5, 6, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 开始时间为北京时间 2025.6.21 0:00:00
+    # start_datetime = datetime(2025, 6, 21, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # # 开始时间为北京时间 2025.6.22 00:00:00
+    end_datetime = datetime(2025, 6, 22, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
 
     # 结束时间为北京时间 2025.6.19 16:30:00 (182257 rows) Took 220.7019 seconds
-    end_datetime = datetime(2025, 6, 19, 16, 30, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # end_datetime = datetime(2025, 6, 19, 16, 30, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    # 结束时间为北京时间 2025.7.4 00:00:00
+    # end_datetime = datetime(2025, 7, 4, 0, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
 
     # 测试分批全量获取数据(包含 max_limit)
     result1 = hbase.get_data_with_timerage_batches_via_ssh(
@@ -418,7 +434,7 @@ def test_get_data_with_timerage_batches_via_ssh_imporve():
         # max_limit=100000,  # 设置最大行数限制，避免过多数据导致程序崩溃
         # max_limit=10000,  # 设置最大行数限制，避免过多数据导致程序崩溃
         # start_row_key="0.time.chameleoncloud.co.uk-9223370286645797690",
-        start_row_key= result1.last_row_key,  # 使用上一次获取的最后一行键作为起始行键
+        start_row_key=result1.last_row_key,  # 使用上一次获取的最后一行键作为起始行键
         max_limit=3,  # 设置最大行数限制，避免过多数据导致程序崩溃
     )
 
@@ -440,23 +456,44 @@ def test_get_data_with_timerage_batches_via_ssh_imporve():
 
 def test_reverse_timestamp_to_normal():
     """测试将时间戳转换为正常时间"""
+    timestamp = 9223370286617113050
+    # timestamp = 9223370288415340102
+    normal_time = HBaseAPI.reverse_timestamp_to_normal(timestamp)
+    SUMMER_MODULES_TEST_LOGGER.info(f"时间戳 {timestamp} 转换为正常时间: {normal_time}")
+
+    # 将正常时间戳转换为东八区时间
+    normal_time_utc_east8 = convert_timestamp_to_timezone_time(
+        timestamp=normal_time, zone_info=ZoneInfo("Asia/Shanghai")
+    )
+    SUMMER_MODULES_TEST_LOGGER.info(
+        f"时间戳 {timestamp} 转换为东八区时间: {normal_time_utc_east8}"
+    )
+
+
+# 获取最后一天一条数据的时间戳
+def test_get_last_row_timestamp():
+    """测试获取表最后一条数据的时间戳"""
     hbase = HBaseAPI(
         host=HBASE_HOST,
         port=HBASE_PORT,
         username=HBASE_USERNAME,
         password=HBASE_PASSWORD,
     )
-
-    # 测试时间戳
-    timestamp = 9223370286617113050
-    normal_time = hbase.reverse_timestamp_to_normal(timestamp)
+    last_row_timestamp = hbase.get_last_row_timestamp("cloud-whoisxml-whois-data")
+    SUMMER_MODULES_TEST_LOGGER.info(f"表最后一条数据的时间戳: {last_row_timestamp}")
+    if not last_row_timestamp:
+        SUMMER_MODULES_TEST_LOGGER.error("没有找到表的最后一条数据")
+        return
+    local_time = convert_timestamp_to_timezone_time(timestamp=last_row_timestamp)
     SUMMER_MODULES_TEST_LOGGER.info(
-        f"时间戳 {timestamp} 转换为正常时间: {normal_time}"
+        f"表最后一条数据的本地时间: {local_time.strftime('%Y-%m-%d %H:%M:%S')}"
     )
+
 
 if __name__ == "__main__":
     # run_safe_tests() # 运行安全的只读测试
-    test_count_rows_with_timerage_via_ssh() # 测试通过 SSH 获取指定时间范围的数据的功能
+    # test_count_rows_with_timerage_via_ssh()  # 测试通过 SSH 获取指定时间范围的数据的功能
     # test_get_data_with_timerage_via_ssh() # 测试通过 SSH 获取指定时间范围的数据的功能
     # test_get_data_with_timerage_batches_via_ssh_imporve() # 测试通过 SSH 分批获取指定时间范围的数据的功能
-    # test_reverse_timestamp_to_normal() # 测试将时间戳转换为正常时间
+    test_reverse_timestamp_to_normal()  # 测试将时间戳转换为正常时间
+    # test_get_last_row_timestamp()  # 测试获取表最后一条数据的时间戳
