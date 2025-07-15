@@ -181,9 +181,12 @@ def get_sorted_filepaths_by_prefix(
         # 截断前缀
         if filename.startswith(prefix):
             number_part = filename[len(prefix) :]
-            # 提取数字部分
-            number_str = "".join(filter(str.isdigit, number_part))
-            return int(number_str) if number_str else 0
+            # 去除数字的 0 前缀(如果有的话)
+            number_str = number_part.split(".")[0].lstrip("0")
+            # 如果数字部分不为空, 转换为整数, 否则返回0
+            if number_str.isdigit():
+                return int(number_str)
+            return 0
         return 0
 
     # 提取数字并排序
