@@ -820,3 +820,50 @@ def parse_manual_full_export_file_to_json(
         stack_trace = traceback.format_exc()
         HBASE_LOGGER.error(f"转换失败: {e}, 堆栈信息:\n{stack_trace}")
         return None
+
+
+HEX_ESCAPE_PATTERN = re.compile(r"\\x([0-9A-Fa-f]{2})")
+
+
+# 将 hbase shell 输出的 json 字符串格式化为json 字典
+def format_hbase_shell_json_output(json_str: str) -> Optional[dict]:
+    """将 hbase shell 输出的 json 字符串格式化为 json 字典
+
+    Args:
+        json_str: hbase shell 输出的 json 字符串
+
+    Returns:
+        Optional[dict]: 格式化后的 json 字典, 如果解析失败则返回 None
+    """
+    try:
+
+        def replace_hex_escape(match):
+            hex_code = match.group(1)
+            return chr(int(hex_code, 16))
+
+        # 匹配 \xXX 格式的转义字符
+        processed_string = HEX_ESCAPE_PATTERN.sub(replace_hex_escape, json_str)
+
+        # json.loads() 会自动处理标准转义字符：
+        # \n, \t, \r, \\, \", \/, \b, \f
+        # 以及 \uXXXX (Unicode) 和 \xXX (十六进制)
+        json_data = json.loads(processed_string)  # 尝试将字符串解析为 JSON
+        return json_data
+    except json.JSONDecodeError as e:
+        HBASE_LOGGER.error(f"JSON 解析失败:")
+        HBASE_LOGGER.error(f"  错误消息: {e.msg}")
+        HBASE_LOGGER.error(f"  错误位置: 第 {e.lineno} 行, 第 {e.colno} 列")
+        HBASE_LOGGER.error(f"  错误字符位置: {e.pos}")
+
+        # 显示出错位置附近的内容
+        start = max(0, e.pos - 50)
+        end = min(len(json_str), e.pos + 50)
+        context = json_str[start:end]
+        error_pos_in_context = e.pos - start
+        pointer = " " * error_pos_in_context + "^"
+
+        HBASE_LOGGER.error(f"  出错位置上下文:\n{context}\n{pointer}")
+        return None
+    except Exception as e:
+        HBASE_LOGGER.error(f"解析 WHOIS 字符串失败: {e}")
+        return None
