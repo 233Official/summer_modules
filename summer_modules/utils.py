@@ -7,6 +7,8 @@ import random
 from functools import wraps
 import asyncio
 import inspect
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import Callable, Tuple, Union, Optional, Any, Type, Dict
 
 from . import summer_modules_logger
@@ -395,3 +397,19 @@ def calculate_wait_time(delay, retry_count, strategy, factor, jitter):
         wait = wait * (1 + random.uniform(-jitter, jitter))
 
     return max(0, wait)  # 确保等待时间不为负
+
+
+# 将标准时间戳转换为指定时区时间
+def convert_timestamp_to_timezone_time(
+    timestamp: int, zone_info: ZoneInfo = ZoneInfo("Asia/Shanghai")
+):
+    """将标准时间戳转换为指定时区时间
+
+    Args:
+        timestamp (int): 时间戳，单位为毫秒
+        zone_info (ZoneInfo): 时区信息，默认为上海时区
+    Returns:
+        datetime: 转换后的时间对象
+    """
+    utc_time = datetime.fromtimestamp(timestamp / 1000, tz=ZoneInfo("UTC"))
+    return utc_time.astimezone(zone_info)
