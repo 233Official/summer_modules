@@ -216,9 +216,9 @@ def run_safe_tests():
     return test_results
 
 
-# 测试通过 SSH 获取指定时间范围的数据的功能
+# 测试通过 SSH 查询指定时间范围内指定表的行数的功能
 def test_count_rows_with_timerage_via_ssh():
-    """测试通过 SSH 获取指定时间范围的数据的功能"""
+    """测试通过 SSH 查询指定时间范围内指定表的行数的功能"""
     hbase = HBaseAPI(
         host=HBASE_HOST,
         port=HBASE_PORT,
@@ -250,7 +250,22 @@ def test_count_rows_with_timerage_via_ssh():
         f"表 'cloud-whoisxml-whois-data' 在时间范围 [{start_datetime}, {end_datetime}] 内的行数: {result}"
     )
 
+# 测试通过 SSH 查询指定表的行数的功能
+def test_count_rows_via_ssh():
+    """测试通过 SSH 查询指定表的行数的功能"""
+    hbase = HBaseAPI(
+        host=HBASE_HOST,
+        port=HBASE_PORT,
+        username=HBASE_USERNAME,
+        password=HBASE_PASSWORD,
+    )
 
+    result = hbase.count_rows_via_ssh(table_name="cloud-whoisxml-whois-data")
+    SUMMER_MODULES_TEST_LOGGER.info(
+        f"表 'cloud-whoisxml-whois-data' 的行数: {result}"
+    )
+
+# 测试通过 SSH 获取指定时间范围的数据的功能
 def test_get_data_with_timerage_via_ssh():
     """测试通过 SSH 获取指定时间范围的数据的功能"""
     start_time = time.time()
@@ -492,8 +507,13 @@ def test_get_last_row_timestamp():
 
 if __name__ == "__main__":
     # run_safe_tests() # 运行安全的只读测试
-    # test_count_rows_with_timerage_via_ssh()  # 测试通过 SSH 获取指定时间范围的数据的功能
+
+    # test_reverse_timestamp_to_normal()  # 测试将时间戳转换为正常时间
+    # test_get_last_row_timestamp()  # 测试获取表最后一条数据的时间戳
+
+    # test_count_rows_with_timerage_via_ssh()  # 测试通过 SSH 获取指定时间范围指定表的数据行数的功能
+    test_count_rows_via_ssh()  # 测试通过 SSH 获取指定表的行数的功能
+
     # test_get_data_with_timerage_via_ssh() # 测试通过 SSH 获取指定时间范围的数据的功能
     # test_get_data_with_timerage_batches_via_ssh_imporve() # 测试通过 SSH 分批获取指定时间范围的数据的功能
-    test_reverse_timestamp_to_normal()  # 测试将时间戳转换为正常时间
-    # test_get_last_row_timestamp()  # 测试获取表最后一条数据的时间戳
+

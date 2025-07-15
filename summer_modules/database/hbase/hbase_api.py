@@ -1095,19 +1095,6 @@ class HBaseAPI:
             self._reconnect()
             raise
 
-
-    def calculate_reverse_timestamp(self, timestamp_ms: int) -> int:
-        """计算反向时间戳
-
-        Args:
-            timestamp_ms: 正向时间戳（毫秒）
-
-        Returns:
-            int: 反向时间戳
-        """
-        JAVA_LONG_MAX = 9223372036854775807
-        return JAVA_LONG_MAX - timestamp_ms
-
     @staticmethod
     def reverse_timestamp_to_normal(reverse_timestamp: int) -> int:
         """将反向时间戳转换为正常时间戳
@@ -1121,6 +1108,7 @@ class HBaseAPI:
         JAVA_LONG_MAX = 9223372036854775807
         return JAVA_LONG_MAX - reverse_timestamp
 
+    # 计算指定表时间范围内的数据行数
     def count_rows_with_timerage_via_ssh(
         self,
         table_name: str,
@@ -1182,6 +1170,50 @@ class HBaseAPI:
         )
         return row_count
 
+    # 查询指定表单里的数据条数
+    def count_rows_via_ssh(self, table_name: str) -> Optional[int]:
+        """查询指定表中的数据条数
+
+        Args:
+            table_name: 表名
+
+        Returns:
+            Optional[int]: 数据条数，如果表不存在则返回 None
+        """
+        try:
+            if not self.table_exists(table_name):
+                HBASE_LOGGER.error(f"表 {table_name} 不存在")
+                return None
+
+            # Use SSH connection to execute HBase count command
+            command = f"count '{table_name}'"
+            ssh_result = self.ssh_connection.execute_hbase_command(command)
+            
+            if not ssh_result.success:
+                HBASE_LOGGER.error(f"通过 SSH 执行 HBase 命令失败: {ssh_result.error_message}")
+                return None
+
+            output = ssh_result.output
+            if not output:
+                HBASE_LOGGER.error("SSH 执行 HBase Shell 命令没有返回任何信息")
+                return None
+
+            # Parse the output to get the row count
+            match = re.search(r"=> (\d+)", output)
+            if not match:
+                HBASE_LOGGER.error("无法从 HBase Shell 输出中解析行数")
+                return None
+
+            row_count = int(match.group(1))
+            HBASE_LOGGER.info(f"表 {table_name} 共有 {row_count} 行数据")
+            return row_count
+        except Exception as e:
+            HBASE_LOGGER.error(f"查询表 {table_name} 行数时出错: {e}")
+            self._reconnect()
+            raise
+      
+
+    # 通过 SSH 连接获取指定时间范围内的数据，支持批量处理
     def get_data_with_timerage_batches_via_ssh(
         self,
         table_name: str,
@@ -1375,6 +1407,7 @@ class HBaseAPI:
             last_row_key=last_row_key,  
         )
 
+    # 通过 SSH 连接获取指定时间范围内的数据
     def get_data_with_timerage_via_ssh(
         self,
         table_name: str,
