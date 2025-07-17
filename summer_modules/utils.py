@@ -153,6 +153,24 @@ def get_all_json_files(directory: Path) -> list:
     return get_files_by_extension(directory, "json")
 
 
+# 读取文本文件内容到字符串
+def read_text_file_to_string(file_path: Path) -> str:
+    """读取文本文件内容到字符串
+
+    Args:
+        file_path (Path): 文本文件路径
+    Returns:
+        str: 文件内容
+    """
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return content
+    except Exception as e:
+        summer_modules_logger.error(f"读取 {file_path} 时出错: {e}")
+        return ""
+
+
 # 根据文件名前缀截断文件名为(前缀+数字+后缀)的格式, 根据数字的大小进行排序返回文件名列表
 def get_sorted_filepaths_by_prefix(
     filepaths: list[Path], prefix: str, ASCE: bool = True
