@@ -434,3 +434,40 @@ def convert_timestamp_to_timezone_time(
     """
     utc_time = datetime.fromtimestamp(timestamp / 1000, tz=ZoneInfo("UTC"))
     return utc_time.astimezone(zone_info)
+
+
+# 将指定时区时间转换为另一个指定时区时间
+def convert_timezone_time_to_timezone_time(
+    time: datetime,
+    to_zone: ZoneInfo = ZoneInfo("UTC"),
+    from_zone: Optional[ZoneInfo] = ZoneInfo("Asia/Shanghai"),
+):
+    """将指定时区时间转换为另一个指定时区时间
+
+    Args:
+        time (datetime): 要转换的时间对象
+        from_zone (ZoneInfo): 原始时区信息，默认为上海时区
+        to_zone (ZoneInfo): 目标时区信息，默认为 UTC 时区
+    Returns:
+        datetime: 转换后的时间对象
+    """
+    if time.tzinfo is None:
+        time = time.replace(tzinfo=from_zone)
+    return time.astimezone(to_zone)
+
+
+# 将指定时区时间转换为 UTC 时间
+def convert_timezone_time_to_utc(
+    time: datetime, zone_info: ZoneInfo = ZoneInfo("Asia/Shanghai")
+):
+    """将指定时区时间转换为 UTC 时间
+
+    Args:
+        time (datetime): 要转换的时间对象
+        zone_info (ZoneInfo): 时区信息，默认为上海时区
+    Returns:
+        datetime: 转换后的 UTC 时间对象
+    """
+    return convert_timezone_time_to_timezone_time(
+        time, from_zone=zone_info, to_zone=ZoneInfo("UTC")
+    )

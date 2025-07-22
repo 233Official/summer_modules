@@ -5,8 +5,13 @@ from summer_modules.utils import (
     read_json_file_to_dict,
     write_dict_to_json_file,
     retry,
+    convert_timestamp_to_timezone_time,
+    convert_timezone_time_to_timezone_time,
+    convert_timezone_time_to_utc,
 )
 import asyncio
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 CURRENT_DIR = Path(__file__).resolve().parent
 
@@ -41,9 +46,32 @@ async def fetch_data_async(url):
     pass
 
 
-def main():
+def test_fetch_data():
     fetch_data("http://example.com")
     asyncio.run(fetch_data_async("http://example.com"))
+
+
+def test_convert_timezone_time_to_timezone_time():
+    current_time = datetime.now(tz=ZoneInfo("Asia/Shanghai"))
+    tokyo_time = convert_timezone_time_to_timezone_time(
+        time=current_time, to_zone=ZoneInfo("Asia/Tokyo")
+    )
+    SUMMER_MODULES_TEST_LOGGER.info(
+        f"当前时间: {current_time}, 转换后的东京时间: {tokyo_time}"
+    )
+
+
+def test_convert_timezone_time_to_utc():
+    current_time = datetime.now(tz=ZoneInfo("Asia/Shanghai"))
+    utc_time = convert_timezone_time_to_utc(time=current_time)
+    SUMMER_MODULES_TEST_LOGGER.info(
+        f"当前时间: {current_time}, 转换后的UTC时间: {utc_time}"
+    )
+
+
+def main():
+    # test_convert_timezone_time_to_timezone_time()
+    test_convert_timezone_time_to_utc()
 
 
 if __name__ == "__main__":
