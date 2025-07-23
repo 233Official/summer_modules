@@ -59,11 +59,14 @@ class GitlabOSS(GitlabImageHost):
         )
         self.gitlab_repo_oss_base_path = gitlab_repo_oss_base_path
 
-    def upload_text_file(self, file_path: Path) -> str:
+    def upload_text_file(
+        self, file_path: Path, repo_file_dir: Optional[str] = None
+    ) -> str:
         """上传文本文件到 Gitlab OSS
 
         Args:
             file_path (Path): 本地文件路径
+            repo_file_dir (Optional[str], optional): 仓库中文件存储的目录. Defaults to None.
         Returns:
             str: 上传后的文件 URL
         """
@@ -77,6 +80,8 @@ class GitlabOSS(GitlabImageHost):
         )
         filename = f"{current_time}_{filename}"
         file_base_dir = f"{self.gitlab_repo_oss_base_path}/text"
+        if repo_file_dir:
+            file_base_dir = f"{file_base_dir}/{repo_file_dir}"
         if not self.is_dir_exists(file_base_dir):
             self.create_new_dir(
                 dir_path=file_base_dir, commit_message="Create text directory"
