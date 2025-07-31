@@ -241,6 +241,7 @@ def find_chinese_font() -> Optional[str]:
     # 尝试一个个加载字体，直到找到可用的
     for font_path in font_paths:
         if os.path.exists(font_path):
+            summer_modules_logger.info(f"找到可用的中文字体: {font_path}")
             return font_path
 
     # 如果找不到任何中文字体，返回使用当前模块自带的默认字体 SimHei.ttf
