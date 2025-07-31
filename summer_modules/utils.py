@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import Callable, Tuple, Union, Optional, Any, Type, Dict
 
-from . import summer_modules_logger
+from summer_modules import summer_modules_logger, RESOURCE_DIR
 
 
 def write_dict_to_json_file(data: dict, filepath: Path, one_line: bool = True):
@@ -217,7 +217,7 @@ def get_sorted_filepaths_by_prefix(
     return sorted_filepaths
 
 
-def find_chinese_font():
+def find_chinese_font() -> Optional[str]:
     """
     查找系统中可用的中文字体
 
@@ -243,8 +243,15 @@ def find_chinese_font():
         if os.path.exists(font_path):
             return font_path
 
-    # 如果找不到任何中文字体，返回None
-    return None
+    # 如果找不到任何中文字体，返回使用当前模块自带的默认字体 SimHei.ttf
+    default_font_path = RESOURCE_DIR / "fonts" / "SimHei.ttf"
+    if default_font_path.exists():
+        return str(default_font_path)
+    else:
+        summer_modules_logger.warning(
+            "未找到任何中文字体，且默认字体 SimHei.ttf 也不存在，请检查资源目录"
+        )
+        return None
 
 
 def handle_final_failure(exception, context):
