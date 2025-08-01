@@ -35,3 +35,7 @@ port = 22
 [hbase_ssh_output_test]
 src_filepath = ""
 out_json_filepath = ""
+
+[bot]
+[bot.wxwork]
+webhook = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
