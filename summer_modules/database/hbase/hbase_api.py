@@ -47,7 +47,7 @@ class HBaseAPI:
     def __init__(
         self,
         host: str,
-        port: int,
+        thrift_port: int,
         username: str = "",
         password: str = "",
         ssh_terminal_width: int = 1024,  # SSH 终端宽度
@@ -57,14 +57,14 @@ class HBaseAPI:
 
         Args:
             host: HBase 服务器地址
-            port: HBase 服务器端口
+            thrift_port: HBase 服务器 Thrift API 端口
             username: 用户名（如果需要认证）
             password: 密码（如果需要认证）
             ssh_terminal_width: SSH 终端宽度，默认为 1024
             ssh_command_buffer_size: SSH 命令缓冲区大小，默认为 1MB
         """
         self.host = host
-        self.port = port
+        self.port = thrift_port
         self.username = username
         self.password = password
         self.write_lock = threading.Lock()
@@ -92,7 +92,7 @@ class HBaseAPI:
             terminal_height=1024,  # 终端高度
         )
 
-        HBASE_LOGGER.info(f"HBase API 初始化完成，连接到 {host}:{port}")
+        HBASE_LOGGER.info(f"HBase API 初始化完成，连接到 {host}:{thrift_port}")
 
     @property
     def _client(self) -> "Hbase.Client":

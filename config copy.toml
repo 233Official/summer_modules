@@ -14,7 +14,7 @@ gitlab_repo_image_base_path = "xxx/xxx"
 [database]
 [database.hbase]
 host = "localhost"
-port = 8080
+thrift_port= 8080
 username = "hbase"
 password = "hbase"
 

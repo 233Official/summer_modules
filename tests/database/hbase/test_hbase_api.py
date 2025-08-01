@@ -23,7 +23,7 @@ from tests import SUMMER_MODULES_TEST_LOGGER, CONFIG
 # 从配置文件获取连接信息
 HBASE_CONFIG = CONFIG["database"]["hbase"]
 HBASE_HOST = HBASE_CONFIG["host"]
-HBASE_PORT = HBASE_CONFIG["port"]
+HBASE_THRIFT = HBASE_CONFIG["thrift_port"]
 HBASE_USERNAME = HBASE_CONFIG["username"]
 HBASE_PASSWORD = HBASE_CONFIG["password"]
 
@@ -35,7 +35,7 @@ def run_safe_tests():
     # 记录测试开始
     SUMMER_MODULES_TEST_LOGGER.info("=" * 50)
     SUMMER_MODULES_TEST_LOGGER.info(
-        f"开始安全的 HBase API 测试 - 连接到 {HBASE_HOST}:{HBASE_PORT}"
+        f"开始安全的 HBase API 测试 - 连接到 {HBASE_HOST}:{HBASE_THRIFT} 的 Thrift API"
     )
     SUMMER_MODULES_TEST_LOGGER.info("=" * 50)
 
@@ -43,7 +43,7 @@ def run_safe_tests():
     try:
         hbase = HBaseAPI(
             host=HBASE_HOST,
-            port=HBASE_PORT,
+            thrift_port=HBASE_THRIFT,
             username=HBASE_USERNAME,
             password=HBASE_PASSWORD,
         )
@@ -221,7 +221,7 @@ def test_count_rows_with_timerage_via_ssh():
     """测试通过 SSH 查询指定时间范围内指定表的行数的功能"""
     hbase = HBaseAPI(
         host=HBASE_HOST,
-        port=HBASE_PORT,
+        thrift_port=HBASE_THRIFT,
         username=HBASE_USERNAME,
         password=HBASE_PASSWORD,
     )
@@ -250,20 +250,20 @@ def test_count_rows_with_timerage_via_ssh():
         f"表 'cloud-whoisxml-whois-data' 在时间范围 [{start_datetime}, {end_datetime}] 内的行数: {result}"
     )
 
+
 # 测试通过 SSH 查询指定表的行数的功能
 def test_count_rows_via_ssh():
     """测试通过 SSH 查询指定表的行数的功能"""
     hbase = HBaseAPI(
         host=HBASE_HOST,
-        port=HBASE_PORT,
+        thrift_port=HBASE_THRIFT,
         username=HBASE_USERNAME,
         password=HBASE_PASSWORD,
     )
 
     result = hbase.count_rows_via_ssh(table_name="cloud-whoisxml-whois-data")
-    SUMMER_MODULES_TEST_LOGGER.info(
-        f"表 'cloud-whoisxml-whois-data' 的行数: {result}"
-    )
+    SUMMER_MODULES_TEST_LOGGER.info(f"表 'cloud-whoisxml-whois-data' 的行数: {result}")
+
 
 # 测试通过 SSH 获取指定时间范围的数据的功能
 def test_get_data_with_timerage_via_ssh():
@@ -272,7 +272,7 @@ def test_get_data_with_timerage_via_ssh():
     SUMMER_MODULES_TEST_LOGGER.info("开始测试获取数据功能")
     hbase = HBaseAPI(
         host=HBASE_HOST,
-        port=HBASE_PORT,
+        thrift_port=HBASE_THRIFT,
         username=HBASE_USERNAME,
         password=HBASE_PASSWORD,
     )
@@ -403,7 +403,7 @@ def test_get_data_with_timerage_batches_via_ssh_imporve():
     SUMMER_MODULES_TEST_LOGGER.info("开始测试获取数据功能")
     hbase = HBaseAPI(
         host=HBASE_HOST,
-        port=HBASE_PORT,
+        thrift_port=HBASE_THRIFT,
         username=HBASE_USERNAME,
         password=HBASE_PASSWORD,
     )
@@ -490,7 +490,7 @@ def test_get_last_row_timestamp():
     """测试获取表最后一条数据的时间戳"""
     hbase = HBaseAPI(
         host=HBASE_HOST,
-        port=HBASE_PORT,
+        thrift_port=HBASE_THRIFT,
         username=HBASE_USERNAME,
         password=HBASE_PASSWORD,
     )
@@ -516,4 +516,3 @@ if __name__ == "__main__":
 
     # test_get_data_with_timerage_via_ssh() # 测试通过 SSH 获取指定时间范围的数据的功能
     # test_get_data_with_timerage_batches_via_ssh_imporve() # 测试通过 SSH 分批获取指定时间范围的数据的功能
-
