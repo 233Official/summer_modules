@@ -487,10 +487,9 @@ class OTXApi:
                 # 为没有时区信息的datetime添加UTC时区
                 last_created_time = last_created_time.replace(tzinfo=ZoneInfo("UTC"))
         else:
-            OTX_API_LOGGER.info(
-                "last_created_time 为 None, 不限制查询时间, 直到没有更多活跃 IOC 为止"
+            OTX_API_LOGGER.error(
+                "last_created_time 为 None, 理论上不应该发生, 请检查调用该方法的逻辑"
             )
-            last_created_time = datetime(1970, 1, 1, tzinfo=ZoneInfo("UTC"))
 
         response_json = self.get_pulses_indicators_by_page(
             pulse_id=pulse_id,
