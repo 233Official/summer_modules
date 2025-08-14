@@ -9,6 +9,7 @@ from matplotlib.font_manager import FontProperties as FP
 from summer_modules.database.postgres import POSTGRES_LOGGER
 from summer_modules.markdown import Markdown
 from summer_modules.utils import find_chinese_font
+from summer_modules.markdown.image_host.gitlab import GitlabImageHost
 
 
 # 创建标准分区（过去12个月+当前月）
@@ -511,6 +512,7 @@ def create_partition_management_report(
     pie_chart_ioc_partition_distribution_filepath: Path,
     standard_partition_stats: dict | None = None,
     custom_logger=None,
+    gitlab_image_host: GitlabImageHost | None = None,
     archive_stats: dict | None = None,
 ) -> str:
     """
@@ -521,6 +523,7 @@ def create_partition_management_report(
         maintenance_stats: 分区维护统计
         standard_partition_stats: 标准分区创建统计（可选）
         custom_logger: 自定义日志记录器（可选）
+        gitlab_image_host: GitlabImageHost | None = None: GitLab 图片托管服务, 若提供则可将图片上传到 Gitlab 并嵌入到 Markdown 中返回
         archive_stats: 分区归档统计(可选):暂时没有归档需求, 遇到需求再写
 
     Returns:
@@ -719,6 +722,14 @@ def create_partition_management_report(
             custom_logger.info(
                 f"IOC分区管理报告已创建，共处理 {len(current_partitions)} 个分区"
             )
+            if gitlab_image_host:
+                img_url = gitlab_image_host.upload_image(
+                    image_path=pie_chart_ioc_partition_distribution_filepath
+                )
+                markdown_report.add_external_image(
+                    image_url=img_url, alt_text="IOC分区状态分布饼图"
+                )
+
         else:
             custom_logger.warning("没有足够的分区数据用于创建可视化")
 
