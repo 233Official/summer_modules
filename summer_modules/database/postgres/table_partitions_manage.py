@@ -12,16 +12,63 @@ from summer_modules.utils import find_chinese_font
 from summer_modules.markdown.image_host.gitlab import GitlabImageHost
 
 
+# 分区表后缀解析
+def parse_partition_suffix(suffix_schema: str) -> str:
+    """解析分区后缀生成模板字符串, 使用 {year} 替代年份, {month} 替代月份
+    例如: suffix_schema = "y2025m08", 返回 "y{year}m{month}"
+
+    Args:
+        suffix_schema: 分区后缀模式
+    Returns:
+        str: 解析后的模板字符串, 例如: suffix_schema = "y2025m08", 返回 "y{year}m{month}"
+    """
+    # 匹配连续的四个数字替换为 {year}
+    suffix_template = re.sub(r"(\d{4})", "{year}", suffix_schema)
+    # 匹配连续的两位数字替换为 {month}
+    suffix_template = re.sub(r"(\d{2})", "{month}", suffix_template)
+    return suffix_template
+
+# 利用分区表后缀模板解析指定分区表名称提取年份与月份
+def parse_partition_table_year_month(partition_table_name: str, suffix_template: str) -> tuple[int, int]:
+    """
+    从分区表名称中提取年份和月份
+
+    Args:
+        partition_table_name: 分区表名称
+        suffix_template: 分区后缀模板, 通过 parse_partition_suffix 生成
+
+    Returns:
+        tuple[int, int]: 提取出的年份和月份
+    """
+    # 生成正则表达式
+    regex_pattern = suffix_template.replace("{year}", r"(\d{4})").replace("{month}", r"(\d{2})")
+    match = re.search(regex_pattern, partition_table_name)
+    if match:
+        year = int(match.group(1))
+        month = int(match.group(2))
+        return year, month
+    else:
+        raise ValueError(f"无法从分区表名称提取年份和月份: {partition_table_name}")
+
+
 # 创建标准分区（过去12个月+当前月）
 def create_standard_partitions(
-    conn_string: str, months_back: int = 12, custom_logger=None
+    conn_string: str,
+    table_name: str,
+    suffix_schema: str = "y2025m08",
+    months_back: int = 12,
+    index_dict: dict | None = None,
+    custom_logger=None,
 ) -> dict:
     """
-    创建过去指定月数和当前月的IOC表分区
+    创建过去指定月数和当前月的表分区
 
     Args:
         conn_string: 数据库连接字符串
+        table_name: 表名
+        suffix_schema: 后缀模式, 默认 "y2025m08", 也常见 "2025_08" 等自定义格式(年份固定4位, 月份固定2位)
         months_back: 要创建的过去月份数量, 默认12个月
+        index_dict: 分区索引字典, 格式为 {"需要创建索引的字段名": "索引名称模板"}, 例如{"indicator": "idx_{partition_name}_indicator"}
         custom_logger: 自定义日志记录器, 默认为 None
 
     Returns:
@@ -29,6 +76,10 @@ def create_standard_partitions(
     """
     if not custom_logger:
         custom_logger = POSTGRES_LOGGER
+
+    # 解析后缀格式
+    template = parse_partition_suffix(suffix_schema)
+    custom_logger.info(f"解析{suffix_schema}得到模板{template}")
 
     stats = {
         "created_partitions": [],
@@ -42,13 +93,13 @@ def create_standard_partitions(
             with conn.cursor() as cur:
                 # 查询现有分区
                 cur.execute(
-                    """
+                    f"""
                     SELECT relname 
                     FROM pg_class c
                     JOIN pg_namespace n ON n.oid = c.relnamespace
                     WHERE c.relkind = 'r' 
                       AND n.nspname = 'public'
-                      AND c.relname LIKE 'ioc_info_%'
+                      AND c.relname LIKE '{table_name}_%'
                 """
                 )
                 existing_partitions = [row[0] for row in cur.fetchall()]
@@ -77,9 +128,14 @@ def create_standard_partitions(
                 current_date = start_date
 
                 while current_date <= current_month:
-                    partition_name = (
-                        f"ioc_info_{current_date.year}_{current_date.month:02d}"
+                    # 根据表名, 年月和后缀模式生成分区名称
+                    partition_name_suffix = template.format(
+                        year=current_date.year, month=f"{current_date.month:02d}"
                     )
+                    partition_name = f"{table_name}_{partition_name_suffix}"
+                    # partition_name = (
+                    #     f"{table_name}_{current_date.year}_{current_date.month:02d}"
+                    # )
 
                     # 计算下个月（分区结束日期）
                     if current_date.month == 12:
@@ -116,20 +172,26 @@ def create_standard_partitions(
                         # 创建分区
                         cur.execute(
                             f"""
-                            CREATE TABLE IF NOT EXISTS {partition_name} PARTITION OF ioc_info
+                            CREATE TABLE IF NOT EXISTS {partition_name} PARTITION OF {table_name}
                             FOR VALUES FROM ('{partition_start}') TO ('{partition_end}');
                         """
                         )
 
                         # 为分区创建所需的索引
-                        cur.execute(
-                            f"""
-                            CREATE INDEX IF NOT EXISTS idx_{partition_name}_indicator ON {partition_name}(indicator);
-                            CREATE INDEX IF NOT EXISTS idx_{partition_name}_type ON {partition_name}(type);
-                            CREATE INDEX IF NOT EXISTS idx_{partition_name}_pulse_id ON {partition_name}(pulse_id);
-                            CREATE INDEX IF NOT EXISTS idx_{partition_name}_created ON {partition_name}(created);
-                        """
-                        )
+                        if index_dict:
+                            index_create_sql = ""
+                            for field, index_template in index_dict.items():
+                                index_name = index_template.format(partition_name=partition_name)
+                                index_create_sql += f"CREATE INDEX IF NOT EXISTS {index_name} ON {partition_name}({field});\n"
+                            cur.execute(index_create_sql)
+                            # cur.execute(
+                            #     f"""
+                            #     CREATE INDEX IF NOT EXISTS idx_{partition_name}_indicator ON {partition_name}(indicator);
+                            #     CREATE INDEX IF NOT EXISTS idx_{partition_name}_type ON {partition_name}(type);
+                            #     CREATE INDEX IF NOT EXISTS idx_{partition_name}_pulse_id ON {partition_name}(pulse_id);
+                            #     CREATE INDEX IF NOT EXISTS idx_{partition_name}_created ON {partition_name}(created);
+                            # """
+                            # )
 
                         conn.commit()
                         custom_logger.info(
@@ -161,14 +223,22 @@ def create_standard_partitions(
 
 # 检查并创建未来分区
 def check_and_create_future_partitions(
-    conn_string: str, months_ahead: int = 3, custom_logger=None
+    conn_string: str,
+    table_name: str,
+    suffix_schema: str,
+    months_ahead: int = 3,
+    index_dict: dict | None = None,
+    custom_logger=None,
 ) -> dict:
     """
-    检查并创建未来几个月的IOC表分区, 如果所有分区都已存在则直接返回
+    检查并创建未来几个月的表分区, 如果所有分区都已存在则直接返回
 
     Args:
         conn_string: 数据库连接字符串
+        table_name: 表名
+        suffix_schema: 分区后缀模式, 如 "y2025m08", 也常见 "2025m08", "2025_08" 等自定义结构(年份必须是四位数,月份必须是两位数)
         months_ahead: 提前创建多少个月的分区
+        index_dict: dict | None = None: 分区索引字典, 键为字段名, 值为索引名称模板, 如 {"field_name": "idx_{partition_name}_{field_name}"}
         custom_logger: 自定义日志记录器, 默认为 None
 
     Returns:
@@ -176,6 +246,10 @@ def check_and_create_future_partitions(
     """
     if not custom_logger:
         custom_logger = POSTGRES_LOGGER
+
+    # 解析后缀模式
+    template = parse_partition_suffix(suffix_schema)
+    custom_logger.info(f"解析{suffix_schema}得到模板{template}")
 
     stats = {
         "created_partitions": [],
@@ -196,7 +270,7 @@ def check_and_create_future_partitions(
                     JOIN pg_namespace n ON n.oid = c.relnamespace
                     WHERE c.relkind = 'r' 
                       AND n.nspname = 'public'
-                      AND c.relname LIKE 'ioc_info_%'
+                      AND c.relname LIKE '{table_name}_%'
                 """
                 )
                 existing_partitions = [row[0] for row in cur.fetchall()]
@@ -221,9 +295,10 @@ def check_and_create_future_partitions(
                         )
 
                     # 构建分区名称
-                    partition_name = (
-                        f"ioc_info_{next_month.year}_{next_month.month:02d}"
+                    partition_name_suffix = template.format(
+                        year=next_month.year, month=f"{next_month.month:02d}"
                     )
+                    partition_name = f"{table_name}_{partition_name_suffix}"
 
                     # 添加到需要检查的分区列表
                     required_partitions.append(
@@ -275,20 +350,26 @@ def check_and_create_future_partitions(
                         # 为月份创建分区
                         cur.execute(
                             f"""
-                            CREATE TABLE IF NOT EXISTS {partition_name} PARTITION OF ioc_info
+                            CREATE TABLE IF NOT EXISTS {partition_name} PARTITION OF {table_name}
                             FOR VALUES FROM ('{partition_start}') TO ('{partition_end}');
                         """
                         )
 
                         # 为分区创建所需的索引
-                        cur.execute(
-                            f"""
-                            CREATE INDEX IF NOT EXISTS idx_{partition_name}_indicator ON {partition_name}(indicator);
-                            CREATE INDEX IF NOT EXISTS idx_{partition_name}_type ON {partition_name}(type);
-                            CREATE INDEX IF NOT EXISTS idx_{partition_name}_pulse_id ON {partition_name}(pulse_id);
-                            CREATE INDEX IF NOT EXISTS idx_{partition_name}_created ON {partition_name}(created);
-                        """
-                        )
+                        if index_dict:
+                            index_create_sql = ""
+                            for field_name, index_name in index_dict.items():
+                                index_create_sql += f"CREATE INDEX IF NOT EXISTS {index_name} ON {partition_name}({field_name});\n"
+                            cur.execute(index_create_sql)
+
+                            # cur.execute(
+                            #     f"""
+                            #     CREATE INDEX IF NOT EXISTS idx_{partition_name}_indicator ON {partition_name}(indicator);
+                            #     CREATE INDEX IF NOT EXISTS idx_{partition_name}_type ON {partition_name}(type);
+                            #     CREATE INDEX IF NOT EXISTS idx_{partition_name}_pulse_id ON {partition_name}(pulse_id);
+                            #     CREATE INDEX IF NOT EXISTS idx_{partition_name}_created ON {partition_name}(created);
+                            # """
+                            # )
 
                         conn.commit()
                         custom_logger.info(
@@ -319,13 +400,19 @@ def check_and_create_future_partitions(
 
 # 维护当前活跃分区
 def maintain_active_partitions(
-    conn_string: str, active_months: int = 3, custom_logger=None
+    conn_string: str,
+    table_name: str,
+    suffix_schema: str,
+    active_months: int = 3,
+    custom_logger=None,
 ) -> dict:
     """
     对当前活跃的分区执行维护操作, 包括VACUUM ANALYZE和索引重建
 
     Args:
         conn_string: 数据库连接字符串
+        table_name: 表名
+        suffix_schema: 分区后缀模式, 如 "y2025m08", 也常见 "2025_08" 等自定义格式(年份固定4位, 月份固定2位)
         active_months: 最近几个月的分区视为活跃分区
         custom_logger: 自定义日志记录器, 用于记录日志信息
 
@@ -334,6 +421,10 @@ def maintain_active_partitions(
     """
     if not custom_logger:
         custom_logger = POSTGRES_LOGGER
+
+    # 解析后缀模式
+    template = parse_partition_suffix(suffix_schema)
+    custom_logger.info(f"解析{suffix_schema}得到模板{template}")
 
     stats = {
         "maintained_partitions": [],
@@ -350,14 +441,14 @@ def maintain_active_partitions(
             with conn.cursor() as cur:
                 # 查询现有分区
                 cur.execute(
-                    """
+                    f"""
                     SELECT relname, pg_size_pretty(pg_total_relation_size(c.oid)) as size,
                            pg_stat_get_numscans(c.oid) as scans
                     FROM pg_class c
                     JOIN pg_namespace n ON n.oid = c.relnamespace
                     WHERE c.relkind = 'r' 
                       AND n.nspname = 'public'
-                      AND c.relname LIKE 'ioc_info_%'
+                      AND c.relname LIKE '{table_name}_%'
                     ORDER BY relname DESC
                 """
                 )
@@ -377,7 +468,10 @@ def maintain_active_partitions(
                     while month <= 0:
                         month += 12
                         year -= 1
-                    active_partition_prefixes.append(f"ioc_info_{year}_{month:02d}")
+                    partition_name_suffix = template.format(year=year, month=f"{month:02d}")
+                    active_partition_prefixes.append(
+                        f"{table_name}_{partition_name_suffix}"
+                    )
 
                 # 仅识别活跃分区，不执行VACUUM
                 for partition_info in all_partitions:
@@ -468,16 +562,27 @@ def maintain_active_partitions(
         return stats
 
 
-def calculate_partition_time_range(partition_stats: dict) -> dict:
+def calculate_partition_time_range(
+    partition_stats: dict, table_name: str, suffix_schema: str, custom_logger=None
+) -> dict:
     """
     从分区名称计算时间范围
 
     Args:
         partition_stats: 分区统计信息
+        table_name: 表名
+        suffix_schema: 分区后缀模式, 如 "y2025m08", 也常见 "2025_08" 等自定义格式(年份固定4位, 月份固定2位)
 
     Returns:
         dict: 包含最早和最晚日期的字典
     """
+    if not custom_logger:
+        custom_logger = POSTGRES_LOGGER
+
+    # 解析后缀模式
+    template = parse_partition_suffix(suffix_schema)
+    custom_logger.info(f"解析{suffix_schema}得到模板{template}")
+
     earliest = None
     latest = None
 
@@ -489,13 +594,14 @@ def calculate_partition_time_range(partition_stats: dict) -> dict:
     # 从分区名称提取年月
     dates = []
     for partition in all_partitions:
-        match = re.match(r"ioc_info_(\d{4})_(\d{2})", partition)
-        if match:
-            year = int(match.group(1))
-            month = int(match.group(2))
-            # 创建日期对象
-            partition_date = datetime(year, month, 1)
-            dates.append(partition_date)
+        year, month = parse_partition_table_year_month(
+            partition_table_name=partition,
+            suffix_template=template
+        )
+
+        # 创建日期对象
+        partition_date = datetime(year, month, 1)
+        dates.append(partition_date)
 
     # 如果有日期，计算最早和最晚
     if dates:
@@ -507,9 +613,11 @@ def calculate_partition_time_range(partition_stats: dict) -> dict:
 
 # 根据各任务的执行结果创建综合报告
 def create_partition_management_report(
+    table_name: str,
+    suffix_schema: str,
     partition_stats: dict,
     maintenance_stats: dict,
-    pie_chart_ioc_partition_distribution_filepath: Path,
+    pie_chart_partition_distribution_filepath: Path,
     standard_partition_stats: dict | None = None,
     custom_logger=None,
     gitlab_image_host: GitlabImageHost | None = None,
@@ -519,8 +627,11 @@ def create_partition_management_report(
     根据各任务的执行结果创建综合报告
 
     Args:
+        table_name: 表名
+        suffix_schema: 分区后缀模式, 如 "y2025m08", 也常见 "2025_08" 等自定义格式(年份固定4位, 月份固定2位)
         partition_stats: 未来分区创建统计
         maintenance_stats: 分区维护统计
+        pie_chart_partition_distribution_filepath: 饼图分区分布文件路径
         standard_partition_stats: 标准分区创建统计（可选）
         custom_logger: 自定义日志记录器（可选）
         gitlab_image_host: GitlabImageHost | None = None: GitLab 图片托管服务, 若提供则可将图片上传到 Gitlab 并嵌入到 Markdown 中返回
@@ -532,15 +643,24 @@ def create_partition_management_report(
     """
     if not custom_logger:
         custom_logger = POSTGRES_LOGGER
+
+    # 解析分区后缀模式
+    template = parse_partition_suffix(suffix_schema)
+    custom_logger.info(f"解析{suffix_schema}得到模板{template}")
+
     # 创建Markdown报告
     report_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     markdown_report = Markdown()
     markdown_report.clear_all()
-    markdown_report.add_header(header=f"IOC数据库分区管理报告 - {report_time}", level=1)
+    markdown_report.add_header(
+        header=f"数据库{table_name}表分区管理报告 - {report_time}", level=1
+    )
     if standard_partition_stats:
         # 从分区名称计算时间范围
-        time_range = calculate_partition_time_range(standard_partition_stats)
+        time_range = calculate_partition_time_range(
+            standard_partition_stats, table_name=table_name, suffix_schema=suffix_schema, custom_logger=custom_logger
+        )
         earliest = time_range.get("earliest", "未知")
         latest = time_range.get("latest", "未知")
         markdown_report.add_header(header="1. 标准分区摘要", level=2)
@@ -711,23 +831,21 @@ def create_partition_management_report(
             # 创建饼图
             fig, ax = plt.subplots(figsize=(10, 6))
             ax.pie(sizes, labels=labels, autopct="%1.1f%%", startangle=90)
-            ax.set_title("IOC分区状态分布")
+            ax.set_title(f"{table_name}表分区状态分布")
             plt.axis("equal")
 
             # 将图表转换为图像
-            fig.savefig(
-                pie_chart_ioc_partition_distribution_filepath, bbox_inches="tight"
-            )
+            fig.savefig(pie_chart_partition_distribution_filepath, bbox_inches="tight")
 
             custom_logger.info(
-                f"IOC分区管理报告已创建，共处理 {len(current_partitions)} 个分区"
+                f"{table_name}表分区管理报告已创建，共处理 {len(current_partitions)} 个分区"
             )
             if gitlab_image_host:
                 img_url = gitlab_image_host.upload_image(
-                    image_path=pie_chart_ioc_partition_distribution_filepath
+                    image_path=pie_chart_partition_distribution_filepath
                 )
                 markdown_report.add_external_image(
-                    image_url=img_url, alt_text="IOC分区状态分布饼图"
+                    image_url=img_url, alt_text=f"{table_name}表分区状态分布饼图"
                 )
 
         else:
