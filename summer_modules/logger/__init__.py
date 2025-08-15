@@ -109,10 +109,11 @@ class ColoredInfoLogger(logging.Logger):
 
 
 def init_and_get_logger(
-    current_dir: Path, logger_name="summer_logger"
+    current_dir: Path, logger_name="summer_logger", enable_color: bool = False
 ) -> logging.Logger:
     # 设置自定义的Logger
-    logging.setLoggerClass(ColoredInfoLogger)
+    if enable_color:
+        logging.setLoggerClass(ColoredInfoLogger)
     logger = logging.getLogger(logger_name)
 
     # 如果logger已经配置过，直接返回
