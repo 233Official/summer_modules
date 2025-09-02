@@ -29,7 +29,9 @@ class Markdown:
         """加载 Markdown 文件内容"""
         MARKDOWN_LOGGER.info(f"加载 markdown 文件内容: {self.markdown_file_path}")
         if not self.markdown_file_path.exists():
-            MARKDOWN_LOGGER.warning(f"Markdown 文件不存在: {self.markdown_file_path}, 无需加载")
+            MARKDOWN_LOGGER.warning(
+                f"Markdown 文件不存在: {self.markdown_file_path}, 无需加载"
+            )
             return
 
         with open(self.markdown_file_path, "r", encoding="utf-8") as f:
@@ -42,7 +44,6 @@ class Markdown:
         with open(self.markdown_file_path, "w", encoding="utf-8") as f:
             f.write(self.content)
         MARKDOWN_LOGGER.info("已保存 Markdown 文件。")
-        self.content = ""  # 清空内容以便下次使用
 
     def clear_all(self) -> None:
         """清空 Markdown 文件内容以及本地 markdown 文件(如果存在)内容"""
