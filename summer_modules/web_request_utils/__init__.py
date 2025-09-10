@@ -99,14 +99,7 @@ class RetryableHTTPClient:
                 if response.status_code in success_codes:
                     if self.logger:
                         self.logger.info(
-                            f"请求成功: {request_desc}",
-                            info_color=(
-                                "magenta"
-                                if hasattr(self.logger, "info")
-                                and "info_color"
-                                in self.logger.info.__code__.co_varnames
-                                else None
-                            ),
+                            f"请求成功: {request_desc}"
                         )
                     return response.json()
                 else:
