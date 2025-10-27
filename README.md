@@ -1,109 +1,100 @@
 # summer_modules
 
-233的Python工具箱
+233的Python工具箱 | Python Utility Collection by 233
 
 ---
 
-## 项目结构
+## 简介
+
+`summer_modules` 是一个面向日常开发、数据分析与安全自动化的 Python 工具箱，涵盖常用的通用工具、日志、Excel、Markdown、图表、网络安全、威胁情报、Web请求等模块。适合个人开发、自动化脚本、数据处理等多场景。
+
+---
+
+## 安装与依赖管理
+
+本项目当前使用 [Poetry](https://python-poetry.org/) 进行依赖管理与打包。
 
 ```bash
-├── CHANGELOG.md           # 更新日志
-├── README.md              # 项目说明    
-├── config copy.toml       # 配置文件（示例）
-├── config.toml            # 配置文件
-├── poetry.lock            # poetry依赖锁定文件
-├── pyproject.toml         # poetry项目配置文件
-├── summer_modules         # 模块主目录
-│   ├── __init__.py
-│   ├── ai
-│   │   ├── __init__.py    
-│   │   ├── deepseek.py    # deeepseek英译中
-│   ├── charts             # 图表相关模块
-│   ├── excel              # excel相关模块
-│   │   ├── __init__.py
-│   ├── logger             # 自定义彩色日志模块
-│   ├── markdown           # markdown 编辑模块
-│   ├── security           # 安全相关模块
-│   │   ├── vulnerability      # 漏洞信息相关模块
-│   │   │   ├── __init__.py
-│   │   │   ├── attck          # attck官网漏洞信息
-│   │   │   ├── cnnvd          # CNNVD官网漏洞信息
-│   │   │   ├── cnvd    
-│   │   │   ├── cve            # CVE官网漏洞信息查询
-│   │   │   ├── github_repo    # nuclei仓库模板信息查询
-│   │   │   ├── nvd
-│   │   ├── threat_intelligence  # 威胁情报相关模块
-│   │   │   ├── otx           # OTX相关模块
-│   ├── web_request_utils  # 随机 UA 生成器
-│   │   ├── __init__.py
-│   │   └── browsers.json
-│   └──  utils.py           # 通用工具模块
-├── tests
-│   ├── __init__.py
-│   ├── test.json
-│   ├── test_main.py
-│   └── test_oneline.json
+# 推荐使用官方脚本安装 poetry
+curl -sSL https://install.python-poetry.org | python3 -
+
+# 安装依赖
+poetry install
+
+# 运行测试
+poetry run pytest
 ```
 
+> 计划切换到 [uv](https://github.com/astral-sh/uv) 进行依赖管理，并拆分为多个子模块，敬请关注后续更新。
+
+---
+
+## 项目结构与模块功能
+
+项目结构简明如下：
+
+```bash
+├── config.toml            # 配置文件
+├── pyproject.toml         # poetry项目配置文件
+├── summer_modules         # 模块主目录
+│   ├── ai                 # AI相关（如英译中）
+│   ├── charts             # 图表绘制与可视化
+│   ├── excel              # Excel 文件操作
+│   ├── logger             # 彩色日志、Prefect日志
+│   ├── markdown           # Markdown 编辑、图片托管
+│   ├── security           # 漏洞信息聚合、威胁情报
+│   ├── web_request_utils  # 随机 User-Agent、Web请求辅助
+│   └── utils.py           # 通用工具函数
+├── tests                  # 单元测试与用例
+└── ...
+```
+
+主要模块功能：
+
+- AI相关：如 `deepseek.py` 提供英译中等 AI 工具
+- charts：数据可视化与图表绘制
+- excel：Excel 文件读写、单元格操作、列名索引
+- logger：自定义彩色日志、Prefect日志
+- markdown：Markdown 文档处理、图片托管、OSS 支持
+- security：漏洞信息聚合（ATT&CK、CNNVD、CVE、NVD、GitHub Nuclei等）、威胁情报（如 OTX）
+- web_request_utils：随机 User-Agent 生成、Web请求辅助
+- utils：常用工具函数（JSON、TXT 文件读写、目录遍历等）
+
+---
+
+## 快速上手
+
+建议直接参考 `tests/` 目录下的测试用例，里面包含了各模块的典型用法示例。
+
+---
+
+## 贡献指南
+
+1. Fork 本仓库并新建分支
+2. 提交代码前请确保通过所有单元测试
+3. 提交 PR 时请详细描述变更内容
+4. 欢迎 issue 反馈与建议
+
+---
+
+## 版本管理与分支策略
+
+- 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/) 规范维护 CHANGELOG
+- 重要版本均会打 tag 归档，如 `v1.0.0` 为大模块归档版本，后续将进行破坏式更新与模块拆分
+- 主分支 `main` 保持稳定，开发分支建议以 `feature/`、`fix/` 前缀命名
+
+---
+
+## 联系方式 & 致谢
+
+- 作者：233Official
+- 邮箱：<ayusummer233@outlook.com>
+- 欢迎关注、Star、交流！
 
 ---
 
 ## Changelog
 
-所有项目的显著变更都将记录在此文件中。
-
-格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)。
-
----
-
-### [0.1.3] - 2025-06-10
-
-- 新增功能
-  - 通用模块(utils.py)更新
-    - `read_json_file_to_dict`: 新增从 JSON 文件读取字典的函数
-    - `write_list_to_txt_file`: 新增将列表写入文本文件的函数
-    - `read_txt_file_to_list`: 新增从文本文件读取列表的函数
-    - `get_all_json_files`: 新增获取指定目录下所有 JSON 文件的函数
-  - 新增 OTX API(security/threat_intelligence/otx)
-  - 新增 markdown 操作模块(markdown)
-  - 新增图表模块(charts)
-  - Web 通用模块更新
-    - `get_standard_domain_from_origin_domain`: 新增获取标准域名的函数
-
----
-
-### [0.1.2] - 2025-05-13
-
-删除 Python 版本上限 3.14 的限制，作为发布库限制版本上限不太合适，Python版本通常有着良好的向后兼容性。
-
-poetry 创建项目时也一般是只限制下限，如果这里库版本限制了上限，那么所有调用库的项目都需要限制上限，就很不方便。
-
----
-
-### [0.1.1] - 2025-05-12
-
-更新 CHANGELOG
-
----
-
-### [0.1.0] - 2025-05-12
-
-### 新增
-- 初始版本发布
-- 包含如下模块
-  - `ai.deepseek`: 英译中
-  - `excel`: Excel 相关操作
-    - `get_column_index_by_name`:获取指定列名对应的索引
-    - `get_cell_value`: 获取指定行和列名的单元格值
-    - `set_cell_value`: 设置指定行和列名的单元格值
-  - `vulnerability`: 漏洞信息相关
-    - `attck`：ATT&CK官网数据处理
-    - `cnnvd`：CNNVD官网数据处理
-    - `cve`：CVE官网数据处理以及指定编号CVE的POC/EXP查询
-    - `github_repo.nuclei`: GitHub Nuclei 模板数据处理，以及查询指定CVE编号是否有对应的Nuclei模板
-  - `web_request_utils.getUserAgent`: 获取随机的User-Agent
-  - `logger`: 自定义颜色 logger
-  - `utils`: 一些常用的工具函数
-    - `write_dict_to_json_file`: 将字典写入 JSON 文件
+详细变更请查阅 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
