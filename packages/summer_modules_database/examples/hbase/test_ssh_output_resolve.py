@@ -1,24 +1,19 @@
+"""Example for parsing HBase shell output."""
+
 from pathlib import Path
 
-from tests import SUMMER_MODULES_TEST_LOGGER, CONFIG
-
-from summer_modules.database.hbase.ssh_output_resolve import (
+from summer_modules_database.hbase.ssh_output_resolve import (
     parse_manual_full_export_file_to_json,
 )
 
-
-def test_parse_manual_full_export_file_to_json():
-    src_filepath = CONFIG["hbase_ssh_output_test"]["src_filepath"]
-    # 不分片
-    parse_manual_full_export_file_to_json(src_filepath=Path(src_filepath))
-    # 分片(developing......)
-    # parse_manual_full_export_file_to_json(
-    #     src_filepath=Path(src_filepath), data_size_limit=50 * 1024 * 1024
-    # )  # 500MB
+from . import CURRENT_DIR
 
 
-def main():
-    test_parse_manual_full_export_file_to_json()
+def main() -> None:
+    sample_file = CURRENT_DIR / "sample_output.txt"
+    if not sample_file.exists():
+        raise RuntimeError("请准备 HBase shell 输出文件 sample_output.txt")
+    parse_manual_full_export_file_to_json(src_filepath=sample_file)
 
 
 if __name__ == "__main__":

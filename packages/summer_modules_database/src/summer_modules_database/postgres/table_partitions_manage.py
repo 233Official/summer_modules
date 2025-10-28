@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from matplotlib.font_manager import FontProperties as FP
 
-from summer_modules.database.postgres import POSTGRES_LOGGER
-from summer_modules.markdown import Markdown
-from summer_modules.utils import find_chinese_font
-from summer_modules.markdown.image_host.gitlab import GitlabImageHost
+from . import POSTGRES_LOGGER
+from summer_modules_markdown import Markdown
+from summer_modules_core.utils import find_chinese_font
+from summer_modules_markdown.image_host.gitlab import GitlabImageHost
 
 
 # 分区表后缀解析

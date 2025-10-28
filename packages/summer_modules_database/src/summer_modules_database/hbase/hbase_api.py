@@ -14,28 +14,23 @@ from thrift.transport import THttpClient
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
-from summer_modules.utils import retry
+from summer_modules_core.utils import retry
 
-from summer_modules.database.hbase import HBASE_LOGGER
-from summer_modules.database.hbase.hbase import Hbase
-from summer_modules.database.hbase.hbase.ttypes import (
-    ColumnDescriptor,
-    Mutation,
-    TScan,
-    TColumn,
-)
-
-from summer_modules.database.hbase.hbase_model import (
+from . import HBASE_LOGGER
+from .hbase import Hbase
+from .hbase.ttypes import ColumnDescriptor, Mutation, TScan, TColumn
+from .hbase_model import (
     HBaseColumn,
     HBaseRow,
     HBaseScanResult,
     ReconstructTruncatedLinesResult,
 )
-from summer_modules.database.hbase.ssh_output_resolve import (
-    parse_hbase_shell_scan_cmd_output,
-)
+from .ssh_output_resolve import parse_hbase_shell_scan_cmd_output
 
-from summer_modules.ssh import SSHConnection
+try:  # pragma: no cover - optional dependency handled at runtime
+    from summer_modules_ssh import SSHConnection
+except ImportError:  # pragma: no cover
+    SSHConnection = None  # type: ignore
 
 
 class HBaseAPI:
@@ -69,6 +64,11 @@ class HBaseAPI:
         self.password = password
         self.write_lock = threading.Lock()
         self.ssh_command_buffer_size = ssh_command_buffer_size
+
+        if SSHConnection is None:
+            raise ImportError(
+                "summer-modules-ssh 未安装，无法建立 HBase SSH 连接。"
+            )
 
         # 初始化连接属性
         self._transport = None

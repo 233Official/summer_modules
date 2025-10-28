@@ -2,13 +2,14 @@
 postgres 数据导出模块
 """
 
-import psycopg2
-from psycopg2.extras import RealDictCursor
 import json
 import os
 from pathlib import Path
 
-from summer_modules.database.postgres import POSTGRES_LOGGER
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+from . import POSTGRES_LOGGER
 
 
 class PostgresExporter:

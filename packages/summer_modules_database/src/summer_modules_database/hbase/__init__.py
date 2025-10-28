@@ -1,9 +1,8 @@
 from pathlib import Path
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
-from summer_modules.logger import init_and_get_logger
+from summer_modules_core.logger import init_and_get_logger
 
-CURRENT_DIR = Path(__file__).parent.resolve()
+PACKAGE_ROOT = Path(__file__).parent.resolve()
+HBASE_LOGGER = init_and_get_logger(PACKAGE_ROOT, "hbase")
 
-HBASE_LOGGER = init_and_get_logger(current_dir=CURRENT_DIR, logger_name="hbase")
+__all__ = ["HBASE_LOGGER"]

@@ -1,5 +1,15 @@
 from pathlib import Path
+from typing import Any, Dict
 
-from tests import SUMMER_MODULES_TEST_LOGGER, CONFIG
+from .. import EXAMPLES_ROOT, get_example_config
 
-CURRENT_DIR = Path(__file__).parent.resolve()
+CURRENT_DIR = EXAMPLES_ROOT / "postgres"
+
+
+def get_postgres_config() -> Dict[str, Any]:
+    config = get_example_config("database")
+    postgres_cfg = config.get("postgres") if isinstance(config, dict) else None
+    return postgres_cfg if isinstance(postgres_cfg, dict) else {}
+
+
+__all__ = ["CURRENT_DIR", "get_postgres_config"]

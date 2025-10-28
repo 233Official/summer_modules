@@ -12,14 +12,14 @@ import json
 import os
 from pympler import asizeof
 
-from summer_modules.database.hbase import HBASE_LOGGER
-from summer_modules.database.hbase.hbase_model import (
+from . import HBASE_LOGGER
+from .hbase_model import (
     HBaseColumn,
     HBaseRow,
     HBaseScanResult,
     ReconstructTruncatedLinesResult,
 )
-from summer_modules.utils import write_dict_to_json_file
+from summer_modules_core.utils import write_dict_to_json_file
 
 
 # 解析 HBase Shell 扫描命令的输出
