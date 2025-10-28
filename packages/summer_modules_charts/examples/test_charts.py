@@ -1,30 +1,31 @@
-from summer_modules.charts import plot_bar_chart
-from tests.test_main import SUMMER_MODULES_TEST_LOGGER
+"""Simple example to generate bar charts."""
+
 from pathlib import Path
 
-CURRENT_DIR = Path(__file__).parent.resolve()
+from summer_modules_charts import plot_bar_chart
+
+from . import EXAMPLES_ROOT
 
 
-def test_plot_bar_chart():
-    data = [1, 2, 3, 4, 5]
+def main() -> None:
+    output_dir = EXAMPLES_ROOT / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     plot_bar_chart(
-        data=data,
-        title="测试列表参数柱形图",
+        data=[1, 2, 3, 4, 5],
+        title="列表数据柱状图",
         xlabel="X-axis",
         ylabel="Y-axis",
-        save_path=CURRENT_DIR / "test_bar_chart.png",
+        save_path=output_dir / "list_bar_chart.png",
     )
-    data_dict = {"A": 1, "B": 2, "C": 3}
     plot_bar_chart(
-        data=data_dict,
-        title="测试字典参数柱形图",
+        data={"A": 1, "B": 2, "C": 3},
+        title="字典数据柱状图",
         xlabel="X-axis",
         ylabel="Y-axis",
-        save_path=CURRENT_DIR / "test_bar_chart_dict.png",
+        save_path=output_dir / "dict_bar_chart.png",
     )
 
 
 if __name__ == "__main__":
-    SUMMER_MODULES_TEST_LOGGER.info("开始测试")
-    test_plot_bar_chart()
-    SUMMER_MODULES_TEST_LOGGER.info("测试完成")
+    main()

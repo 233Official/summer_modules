@@ -1,16 +1,15 @@
 from pathlib import Path
-from typing import Union, Optional
+from typing import Optional, Union
+
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties as FP
 
-from summer_modules.logger import init_and_get_logger
-from summer_modules.utils import (
-    find_chinese_font,
-)
+from summer_modules_core.logger import init_and_get_logger
+from summer_modules_core.utils import find_chinese_font
 
-CURRENT_DIR = Path(__file__).parent.resolve()
+PACKAGE_ROOT = Path(__file__).parent.resolve()
 CHARTS_LOGGER = init_and_get_logger(
-    current_dir=CURRENT_DIR, logger_name="charts_logger"
+    current_dir=PACKAGE_ROOT, logger_name="charts_logger"
 )
 
 chinese_font = find_chinese_font()
@@ -20,7 +19,7 @@ if chinese_font:
 else:
     CHARTS_LOGGER.warning("没有找到中文字体,可能会导致中文显示不正常")
 
-TMP_PIC_FILEPATH = (CURRENT_DIR / "logs/tmp_pic.png").resolve()
+TMP_PIC_FILEPATH = (PACKAGE_ROOT / "tmp_chart.png").resolve()
 
 
 def plot_bar_chart(
@@ -92,3 +91,5 @@ def plot_pie_chart(
     # plt.show()
     plt.savefig(save_path)
     CHARTS_LOGGER.info(f"饼图已保存到: {save_path}")
+
+__all__ = ["plot_bar_chart", "plot_pie_chart", "CHARTS_LOGGER", "TMP_PIC_FILEPATH"]
