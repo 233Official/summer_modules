@@ -12,7 +12,7 @@ jobs:
     env:
       UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
       UV_LINK_MODE: copy
-      UV_PYTHON: "3.13.3"
+      UV_PYTHON: "3.13.0"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,7 +21,7 @@ jobs:
         uses: astral-sh/setup-uv@v1
 
       - name: Ensure Python 3.13 available to uv
-        run: uv python install 3.13.3
+        run: uv python install 3.13.0
 
       - name: Sync dependencies
         run: uv sync --frozen
