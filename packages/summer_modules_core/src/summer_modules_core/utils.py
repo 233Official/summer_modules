@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import Callable, Tuple, Union, Optional, Any, Type, Dict
 
-from summer_modules import summer_modules_logger, RESOURCE_DIR
+from summer_modules_core import summer_modules_core_logger, RESOURCE_DIR
 
 
 def write_dict_to_json_file(data: dict, filepath: Path, one_line: bool = True):
@@ -55,7 +55,7 @@ def read_jsonl_file_to_list(filepath: Path) -> list | None:
             for line in f:
                 data.append(json.loads(line.strip()))
     except Exception as e:
-        summer_modules_logger.error(f"读取 {filepath} 时出错: {e}")
+        summer_modules_core_logger.error(f"读取 {filepath} 时出错: {e}")
         return None
     return data
 
@@ -73,7 +73,7 @@ def write_dict_list_to_jsonl_file(data: list[dict], filepath: Path):
                 json.dump(item, f, ensure_ascii=False)
                 f.write("\n")
     except Exception as e:
-        summer_modules_logger.error(f"写入 {filepath} 时出错: {e}")
+        summer_modules_core_logger.error(f"写入 {filepath} 时出错: {e}")
         raise e
 
 
@@ -114,11 +114,11 @@ def get_files_by_extension(
         list: 指定后缀的文件路径列表
     """
     if not directory.exists():
-        summer_modules_logger.error(f"目录不存在: {directory}")
+        summer_modules_core_logger.error(f"目录不存在: {directory}")
         return []
 
     if not directory.is_dir():
-        summer_modules_logger.error(f"路径不是目录: {directory}")
+        summer_modules_core_logger.error(f"路径不是目录: {directory}")
         return []
 
     try:
@@ -131,13 +131,13 @@ def get_files_by_extension(
 
         # 获取匹配的文件
         files = list(directory.glob(pattern))
-        summer_modules_logger.info(
+        summer_modules_core_logger.info(
             f"在 {directory} 中找到 {len(files)} 个 {extension} 文件"
         )
         return files
     except Exception as e:
         stre_trace = traceback.format_exc()
-        summer_modules_logger.error(f"获取 {extension} 文件时出错: {e}\n{stre_trace}")
+        summer_modules_core_logger.error(f"获取 {extension} 文件时出错: {e}\n{stre_trace}")
         return []
 
 
@@ -167,7 +167,7 @@ def read_text_file_to_string(file_path: Path) -> str:
             content = f.read()
         return content
     except Exception as e:
-        summer_modules_logger.error(f"读取 {file_path} 时出错: {e}")
+        summer_modules_core_logger.error(f"读取 {file_path} 时出错: {e}")
         return ""
 
 
@@ -241,7 +241,7 @@ def find_chinese_font() -> Optional[str]:
     # 尝试一个个加载字体，直到找到可用的
     for font_path in font_paths:
         if os.path.exists(font_path):
-            summer_modules_logger.info(f"找到可用的中文字体: {font_path}")
+            summer_modules_core_logger.info(f"找到可用的中文字体: {font_path}")
             return font_path
 
     # 如果找不到任何中文字体，返回使用当前模块自带的默认字体 SimHei.ttf
@@ -249,7 +249,7 @@ def find_chinese_font() -> Optional[str]:
     if default_font_path.exists():
         return str(default_font_path)
     else:
-        summer_modules_logger.warning(
+        summer_modules_core_logger.warning(
             "未找到任何中文字体，且默认字体 SimHei.ttf 也不存在，请检查资源目录"
         )
         return None
@@ -316,7 +316,7 @@ def retry(
                         if retries >= max_retries or (
                             should_retry and not should_retry(e)
                         ):
-                            summer_modules_logger.error(
+                            summer_modules_core_logger.error(
                                 f"异步函数 {func.__name__} 执行失败，已达到最大重试次数或不满足重试条件"
                             )
                             if on_permanent_failure:
@@ -332,10 +332,10 @@ def retry(
                             delay, retries, backoff_strategy, backoff_factor, jitter
                         )
 
-                        summer_modules_logger.warning(
+                        summer_modules_core_logger.warning(
                             f"异步函数 {func.__name__} 执行失败: {str(e)}"
                         )
-                        summer_modules_logger.info(
+                        summer_modules_core_logger.info(
                             f"{wait_time:.2f}秒后进行第{retries}/{max_retries}次重试"
                         )
 
@@ -376,7 +376,7 @@ def retry(
                         if retries >= max_retries or (
                             should_retry and not should_retry(e)
                         ):
-                            summer_modules_logger.error(
+                            summer_modules_core_logger.error(
                                 f"函数 {func.__name__} 执行失败，已达到最大重试次数或不满足重试条件"
                             )
                             if on_permanent_failure:
@@ -388,10 +388,10 @@ def retry(
                             delay, retries, backoff_strategy, backoff_factor, jitter
                         )
 
-                        summer_modules_logger.warning(
+                        summer_modules_core_logger.warning(
                             f"函数 {func.__name__} 执行失败: {str(e)}"
                         )
-                        summer_modules_logger.info(
+                        summer_modules_core_logger.info(
                             f"{wait_time:.2f}秒后进行第{retries}/{max_retries}次重试"
                         )
 
