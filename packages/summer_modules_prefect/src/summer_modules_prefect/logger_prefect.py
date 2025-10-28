@@ -1,214 +1,173 @@
-# 自定义 logger
-import logging
-import time
-from logging.handlers import RotatingFileHandler
-import os
-from pathlib import Path
-from typing import Optional
-import functools
+from __future__ import annotations
+
 import contextlib
+import logging
+from datetime import datetime
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
+from typing import Final
+
 from prefect.logging import get_run_logger
+
+LOG_FILE_NAME: Final = "basic.log"
 
 
 class TimedRotatingFileHandler(RotatingFileHandler):
-    """自定义RotatingFileHandler以添加时间戳"""
+    """按大小轮转并为历史文件追加时间戳。"""
 
     def __init__(
-        self, filename, maxBytes=0, backupCount=0, encoding="utf-8", delay=False
-    ):
-        """指定编码格式为utf-8, 防止中文乱码"""
+        self,
+        filename: Path | str,
+        max_bytes: int = 1_000_000,
+        backup_count: int = 5,
+        encoding: str = "utf-8",
+        delay: bool = False,
+    ) -> None:
         super().__init__(
-            filename,
-            maxBytes=maxBytes,
-            backupCount=backupCount,
+            str(filename),
+            maxBytes=max_bytes,
+            backupCount=backup_count,
             encoding=encoding,
             delay=delay,
         )
 
-    def doRollover(self):
+    def doRollover(self) -> None:  # pragma: no cover - 依赖文件系统状态，测试中跳过
         if self.stream:
             self.stream.close()
-            # self.stream = None
 
-        current_time = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
-        # 拼接原先的文件名(不包含后缀) + 时间 + .log 后缀
-        new_log_filename = (
-            f"{os.path.splitext(self.baseFilename)[0]}.{current_time}.log"
-        )
-        # new_log_filename = f"{self.baseFilename}.{current_time}"
-
-        if os.path.exists(self.baseFilename):
-            os.rename(self.baseFilename, new_log_filename)
+        source = Path(self.baseFilename)
+        timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        rotated = source.with_name(f"{source.stem}.{timestamp}.log")
+        if source.exists():
+            source.rename(rotated)
 
         if self.backupCount > 0:
-            for s in self._getFilesToDelete():
-                os.remove(s)
+            for path_str in self._getFilesToDelete():
+                Path(path_str).unlink(missing_ok=True)
 
         if not self.delay:
             self.stream = self._open()
 
-    def _getFilesToDelete(self):
-        """
-        Determine the files to delete when rolling over.
-        """
-        dir_name, base_name = os.path.split(self.baseFilename)
-        file_names = os.listdir(dir_name)
-        result = []
-        prefix = os.path.splitext(base_name)[0] + "."
-        for fileName in file_names:
-            if fileName.startswith(prefix) and fileName.endswith(".log"):
-                result.append(os.path.join(dir_name, fileName))
-        result.sort()
-        if len(result) > self.backupCount:
-            result = result[: len(result) - self.backupCount]
-        return result
+    def _getFilesToDelete(self) -> list[str]:
+        directory = Path(self.baseFilename).parent
+        base_stem = Path(self.baseFilename).stem
+        candidates = sorted(
+            str(path)
+            for path in directory.glob(f"{base_stem}.*.log")
+            if path.is_file()
+        )
+        if len(candidates) <= self.backupCount:
+            return []
+        return candidates[: len(candidates) - self.backupCount]
 
 
 class CustomFormatter(logging.Formatter):
-    """自定义Formatter, 用于输出彩色日志"""
+    """为控制台输出添加 ANSI 颜色。"""
 
-    # 一些常用的颜色转义序列, 可在如下连接中查看: https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
-    red = "\x1b[31m"
-    bold_red = "\x1b[31;1m"
-    green = "\x1b[32m"
-    yellow = "\x1b[33m"
-    blue = "\x1b[34m"
-    magenta = "\x1b[35m"
-    cyan = "\x1b[36m"
-    white = "\x1b[37m"
-    gray = "\x1b[90m"
-    bright_red = "\x1b[91m"
-    bright_green = "\x1b[92m"
-    bright_yellow = "\x1b[93m"
-    bright_blue = "\x1b[94m"
-    bright_magenta = "\x1b[95m"
-    bright_cyan = "\x1b[96m"
-    bright_white = "\x1b[97m"
-    reset = "\x1b[0m"
-    format_str = "%(asctime)s - %(levelname)s: %(message)s (%(filename)s:%(lineno)d)"
-    date_format = "%Y-%m-%d %H:%M:%S"  # 不包含毫秒的日期格式
+    DATE_FMT = "%Y-%m-%d %H:%M:%S"
+    BASE_FORMAT = "%(asctime)s - %(levelname)s: %(message)s (%(filename)s:%(lineno)d)"
 
+    COLORS = {
+        logging.DEBUG: "\x1b[90m",
+        logging.INFO: "\x1b[34m",
+        logging.WARNING: "\x1b[33m",
+        logging.ERROR: "\x1b[31m",
+        logging.CRITICAL: "\x1b[31;1m",
+    }
     INFO_COLORS = {
-        "default": blue,
-        "green": green,
-        "yellow": yellow,
-        "blue": blue,
-        "magenta": magenta,
-        "cyan": cyan,
-        "white": white,
-        "gray": gray,
-        "bright_blue": bright_blue,
+        "default": "\x1b[34m",
+        "green": "\x1b[32m",
+        "yellow": "\x1b[33m",
+        "magenta": "\x1b[35m",
+        "cyan": "\x1b[36m",
     }
+    RESET = "\x1b[0m"
 
-    FORMATS = {
-        logging.DEBUG: gray,
-        logging.INFO: INFO_COLORS,  # 使用字典来处理不同的INFO颜色
-        logging.WARNING: yellow,
-        logging.ERROR: red,
-        logging.CRITICAL: bold_red,
-    }
-
-    def format(self, record):
-        color = self.FORMATS.get(record.levelno, self.gray)
-        if isinstance(color, dict):
-            # INFO级别的特殊处理
-            info_color = getattr(record, "info_color", "default")
-            color = color.get(info_color, self.gray)
-        log_fmt = color + self.format_str + self.reset
-        formatter = logging.Formatter(log_fmt, datefmt=self.date_format)
-        return formatter.format(record)
-
-
-class ColoredInfoLogger(logging.Logger):
-    """自定义Logger, 用于添加为 INFO 添加颜色"""
-
-    def info(self, msg, info_color: Optional[str] = "default", *args, **kwargs):
-        # 添加info_color属性
-        super().info(msg, extra={"info_color": info_color}, *args, **kwargs)
+    def format(self, record: logging.LogRecord) -> str:
+        color = self.COLORS.get(record.levelno, self.RESET)
+        if record.levelno == logging.INFO:
+            color = self.INFO_COLORS.get(
+                getattr(record, "info_color", "default"),
+                self.INFO_COLORS["default"],
+            )
+        formatter = logging.Formatter(self.BASE_FORMAT, datefmt=self.DATE_FMT)
+        return f"{color}{formatter.format(record)}{self.RESET}"
 
 
 class PrefectLogHandler(logging.Handler):
-    """将日志转发到Prefect日志系统的处理器"""
+    """把标准日志转发到 Prefect 运行日志。"""
 
-    def emit(self, record):
-        try:
-            # 尝试获取当前运行的Prefect日志器
-            with contextlib.suppress(Exception):
-                prefect_logger = get_run_logger()
-
-                # 获取日志级别和消息
-                level = record.levelname.lower()
-                message = self.format(record)
-
-                # 消除彩色ANSI转义序列（在Prefect UI中可能不生效或显示为乱码）
-                ansi_escape = functools.partial(
-                    logging.StreamHandler().terminator.join, [""]
-                )
-                clean_message = logging.makeLogRecord({"msg": message}).__dict__["msg"]
-
-                # 根据级别发送到Prefect日志器
-                if hasattr(prefect_logger, level):
-                    log_method = getattr(prefect_logger, level)
-                    log_method(clean_message)
-                else:
-                    prefect_logger.info(clean_message)
-        except (ImportError, Exception):
-            # 如果Prefect不可用或发生错误，静默忽略以避免影响正常日志记录
-            pass
+    def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover
+        with contextlib.suppress(Exception):
+            prefect_logger = get_run_logger()
+            message = logging.Formatter("%(message)s").format(record)
+            log_method = getattr(prefect_logger, record.levelname.lower(), None)
+            if callable(log_method):
+                log_method(message)
+            else:
+                prefect_logger.info(message)
 
 
 def init_and_get_logger(
-    current_dir: Path, logger_name="summer_logger", enable_color: bool = False
+    current_dir: Path,
+    logger_name: str = "summer_prefect_logger",
+    *,
+    enable_color: bool = False,
 ) -> logging.Logger:
-    # 设置自定义的Logger
-    if enable_color:
-        logging.setLoggerClass(ColoredInfoLogger)
-    logger = logging.getLogger(logger_name)
+    """
+    初始化 Prefect 辅助 logger。
 
-    # 如果logger已经配置过，直接返回
+    Args:
+        current_dir: 用于存放日志文件的目录。
+        logger_name: Logger 名称。
+        enable_color: 是否启用彩色控制台输出。
+    """
+    logger = logging.getLogger(logger_name)
     if logger.handlers:
         return logger
 
-    level = logging.DEBUG
-    logger.setLevel(level)
-    # 禁止日志向上传播到父logger，防止重复输出
+    logger.setLevel(logging.DEBUG)
     logger.propagate = False
 
-    # 清除之前可能添加的handlers
-    logger.handlers = []
+    logs_dir = current_dir / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    readme = logs_dir / "README.md"
+    if not readme.exists():
+        readme.write_text(
+            "此目录用于存放 Prefect 相关日志。basic.log 为当前日志文件，"
+            "basic.<timestamp>.log 为轮转后的历史文件。\n",
+            encoding="utf-8",
+        )
 
-    # 设置日志文件路径
-    LOG_BASIC_NAME = "basic.log"
-    LOG_BASIC_DIR = current_dir / "logs"
-    LOG_BASIC_PATH = LOG_BASIC_DIR / LOG_BASIC_NAME
-    # 如果不存在logs文件夹则创建
-    if not os.path.exists(LOG_BASIC_DIR):
-        os.mkdir(LOG_BASIC_PATH.parent)
-    # 如果没有 README.md 文件, 则新建该文件用于说明日志文件的格式
-    if not os.path.exists(LOG_BASIC_DIR / "README.md"):
-        with open(LOG_BASIC_DIR / "README.md", "w") as f:
-            f.write(
-                f"此文件夹用于存放日志文件, {LOG_BASIC_NAME} 为基本日志文件, {LOG_BASIC_NAME}.时间 为旧日志文件, 以此类推; 当日志文件大小超过1MB时, 会自动创建新的日志文件, 旧日志文件会被重命名为 {LOG_BASIC_NAME}.[当前时间].log\n\n"
+    file_handler = TimedRotatingFileHandler(logs_dir / LOG_FILE_NAME)
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(
+        logging.Formatter(CustomFormatter.BASE_FORMAT, datefmt=CustomFormatter.DATE_FMT)
+    )
+    logger.addHandler(file_handler)
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.DEBUG)
+    if enable_color:
+        stream_handler.setFormatter(CustomFormatter())
+    else:
+        stream_handler.setFormatter(
+            logging.Formatter(
+                CustomFormatter.BASE_FORMAT, datefmt=CustomFormatter.DATE_FMT
             )
+        )
+    logger.addHandler(stream_handler)
 
-    # 创建自定义的文件处理器并设置级别为DEBUG
-    fh = TimedRotatingFileHandler(LOG_BASIC_PATH, maxBytes=1000000, backupCount=5)
-    fh.setLevel(level)
-    fh.setFormatter(CustomFormatter())
-    logger.addHandler(fh)
-
-    # 创建控制台处理器并设置级别为DEBUG(有时候会出现 Prefect logger没有输出控制台的情况, 所以这里要保留)
-    ch = logging.StreamHandler()
-    ch.setLevel(level)
-    ch.setFormatter(CustomFormatter())
-    logger.addHandler(ch)
-
-    # 创建Prefect日志处理器
-    ph = PrefectLogHandler()
-    ph.setLevel(level)
-    ph.setFormatter(
-        logging.Formatter("%(message)s")
-    )  # 简化格式，因为Prefect会添加自己的格式
-    logger.addHandler(ph)
+    prefect_handler = PrefectLogHandler()
+    prefect_handler.setLevel(logging.INFO)
+    prefect_handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(prefect_handler)
 
     return logger
+
+
+__all__ = [
+    "init_and_get_logger",
+    "TimedRotatingFileHandler",
+    "CustomFormatter",
+]

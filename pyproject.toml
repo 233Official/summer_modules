@@ -12,6 +12,7 @@ dependencies = [
     "summer-modules-charts==1.1.0",
     "summer-modules-database==1.1.0",
     "summer-modules-excel==1.1.0",
+    "summer-modules-prefect==1.1.0",
     "summer-modules-ssh==1.1.0",
 ]
 [[project.authors]]
@@ -37,6 +38,7 @@ members = [
     "packages/summer_modules_charts",
     "packages/summer_modules_database",
     "packages/summer_modules_excel",
+    "packages/summer_modules_prefect",
     "packages/summer_modules_ssh",
 ]
 
@@ -48,4 +50,5 @@ summer-modules-markdown = { workspace = true }
 summer-modules-charts = { workspace = true }
 summer-modules-database = { workspace = true }
 summer-modules-excel = { workspace = true }
+summer-modules-prefect = { workspace = true }
 summer-modules-ssh = { workspace = true }

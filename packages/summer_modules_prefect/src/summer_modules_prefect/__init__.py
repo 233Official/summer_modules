@@ -1,124 +1,211 @@
+from __future__ import annotations
+
+import asyncio
 import subprocess
 from pathlib import Path
-from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
-import traceback
-import asyncio
-import inspect
+from typing import Callable, Sequence
 
-
-from prefect.schedules import Interval, Cron
 from prefect.client import get_client
-from prefect.docker.docker_image import DockerImage
-from prefect.client.schemas.actions import WorkPoolCreate
-from prefect.client.schemas.objects import (
-    ConcurrencyLimitConfig,
-    ConcurrencyLimitStrategy,
-)
 from prefect.exceptions import ObjectNotFound
 
-from summer_modules.logger.logger_prefect import init_and_get_logger
+from .logger_prefect import init_and_get_logger
 
-CURRENT_DIR = Path(__file__).parent.resolve()
+CURRENT_DIR = Path(__file__).resolve().parent
 SUMMER_PREFECT_LOGGER = init_and_get_logger(
     current_dir=CURRENT_DIR,
     logger_name="summer_prefect_logger",
 )
 
+CommandRunner = Callable[
+    [Sequence[str], Path | None], subprocess.CompletedProcess[str]
+]
 
-def export_poetry_requirements_to_pips(project_base_dir: Path):
-    """导出 Poetry 依赖到 requirements.txt"""
-    requirements_txt_filepath = project_base_dir / "requirements.txt"
-    # 使用 poetry export -f requirements.txt --output requirements.txt --without-hashes 导出 poetry 依赖
-    subprocess.run(
-        [
-            "poetry",
-            "export",
-            "-f",
-            "requirements.txt",
-            "--output",
-            str(requirements_txt_filepath),
-            "--without-hashes",
-        ],
+
+def _run_command(command: Sequence[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        list(command),
         check=True,
+        cwd=str(cwd) if cwd else None,
+        capture_output=True,
+        text=True,
     )
-    SUMMER_PREFECT_LOGGER.info(f"已将 Poetry 依赖导出到 {requirements_txt_filepath}")
 
 
-async def check_work_pool(work_pool_name: str, project_base_dir: Path):
-    """检查工作池是否存在，如果不存在则创建"""
-    async with get_client() as client:
+def export_poetry_requirements_to_pips(
+    project_base_dir: Path,
+    *,
+    output_filename: str = "requirements.txt",
+    command_runner: CommandRunner = _run_command,
+) -> Path:
+    """
+    将 Poetry 项目依赖导出到 ``requirements.txt``。
+
+    Args:
+        project_base_dir: Poetry 项目的根目录。
+        output_filename: 输出文件名称，默认为 ``requirements.txt``。
+        command_runner: 可选的子进程执行函数，便于测试或自定义执行逻辑。
+
+    Returns:
+        生成的 requirements 文件路径。
+    """
+    output_path = project_base_dir / output_filename
+    command = [
+        "poetry",
+        "export",
+        "-f",
+        "requirements.txt",
+        "--output",
+        str(output_path),
+        "--without-hashes",
+    ]
+    result = command_runner(command, project_base_dir)
+    SUMMER_PREFECT_LOGGER.info(
+        "已将 Poetry 依赖导出到 %s", output_path, extra={"info_color": "green"}
+    )
+    if result.stdout:
+        SUMMER_PREFECT_LOGGER.debug("poetry export 输出: %s", result.stdout.strip())
+    if result.stderr:
+        SUMMER_PREFECT_LOGGER.debug("poetry export 错误输出: %s", result.stderr.strip())
+    return output_path
+
+
+async def check_work_pool(
+    work_pool_name: str,
+    project_base_dir: Path,
+    *,
+    command_runner: CommandRunner = _run_command,
+    client_factory: Callable[[], object] = get_client,
+    work_pool_type: str = "docker",
+) -> bool:
+    """
+    检查 Prefect 工作池是否存在，若不存在则尝试创建。
+
+    Args:
+        work_pool_name: 工作池名称。
+        project_base_dir: 项目根目录，用于执行 CLI 命令。
+        command_runner: 可选的子进程执行函数。
+        client_factory: Prefect 客户端工厂，默认使用 ``prefect.client.get_client``。
+        work_pool_type: 创建工作池时的类型，默认 ``docker``。
+
+    Returns:
+        bool: ``True`` 表示创建了新的工作池，``False`` 表示已存在。
+    """
+
+    async with client_factory() as client:  # type: ignore[func-returns-value]
         try:
-            await client.read_work_pool(work_pool_name=work_pool_name)
-            SUMMER_PREFECT_LOGGER.info(f"工作池 '{work_pool_name}' 已存在")
+            await client.read_work_pool(work_pool_name=work_pool_name)  # type: ignore[attr-defined]
+            SUMMER_PREFECT_LOGGER.info(
+                "工作池 '%s' 已存在", work_pool_name, extra={"info_color": "green"}
+            )
+            return False
         except ObjectNotFound:
             SUMMER_PREFECT_LOGGER.warning(
-                f"工作池 '{work_pool_name}' 不存在，正在创建..."
+                "工作池 '%s' 不存在，正在创建...", work_pool_name
             )
-
-            # # 打印方法签名
-            # print(inspect.signature(client.create_work_pool))
-            # # 或查看完整帮助信息
-            # help(client.create_work_pool)
-
-            # TODO: 有问题这种创建方案
-            # work_pool_create = WorkPoolCreate(
-            #     name=work_pool_name,
-            #     type="docker",
-            #     description=f"工作池 - {work_pool_name}",
-            # )
-            # await client.create_work_pool(work_pool=work_pool_create)
-
-            # 首先需要激活项目根目录下的 source .venv/bin/activate 才能使用 prefect 命令, 然后直接使用 prefect work-pool create [pool_name] --type docker 创建 work_pool
-            # 首先创建激活虚拟环境并运行 prefect 命令的完整命令
-            cmd = f"cd {project_base_dir} && source .venv/bin/activate && prefect work-pool create {work_pool_name} --type docker"
-
-            # 使用 shell=True 以支持 source 命令和环境变量
-            result = subprocess.run(
-                cmd,
-                shell=True,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
+            command = [
+                "prefect",
+                "work-pool",
+                "create",
+                work_pool_name,
+                "--type",
+                work_pool_type,
+            ]
+            result = command_runner(command, project_base_dir)
+            if result.stdout:
+                SUMMER_PREFECT_LOGGER.debug(
+                    "prefect work-pool create 输出: %s", result.stdout.strip()
+                )
+            if result.stderr:
+                SUMMER_PREFECT_LOGGER.debug(
+                    "prefect work-pool create 错误输出: %s", result.stderr.strip()
+                )
+            SUMMER_PREFECT_LOGGER.info(
+                "工作池 '%s' 创建完成", work_pool_name, extra={"info_color": "green"}
             )
-
-            SUMMER_PREFECT_LOGGER.info(f"工作池 '{work_pool_name}' 创建完成")
-        except Exception as e:
-            SUMMER_PREFECT_LOGGER.info(f"type(e): {type(e)}, str(e): {str(e)}")
+            return True
+        except Exception as exc:  # pragma: no cover - 运行时记录真实异常
             SUMMER_PREFECT_LOGGER.error(
-                f"检查工作池 '{work_pool_name}' 时出错: {e}\n报错堆栈:\n{traceback.format_exc()}"
-            )
-            raise e
-
-
-# 同步包装函数，方便在非异步环境中调用
-def check_work_pool_sync(work_pool_name: str, project_base_dir: Path):
-    """检查工作池是否存在的同步版本，如果不存在则创建"""
-    return asyncio.run(check_work_pool(work_pool_name, project_base_dir))
-
-
-async def check_flow_deployment(deployment_name: str) -> bool:
-    """检查流部署是否存在, 存在则返回 True, 不存在则返回 False"""
-    async with get_client() as client:
-        try:
-            # 获取所有部署并过滤名称
-            deployments = await client.read_deployments()
-            matching_deployments = [d for d in deployments if d.name == deployment_name]
-
-            if matching_deployments:
-                SUMMER_PREFECT_LOGGER.info(f"流部署 '{deployment_name}' 已存在")
-                return True
-            else:
-                SUMMER_PREFECT_LOGGER.warning(f"流部署 '{deployment_name}' 不存在")
-                return False
-        except Exception as e:
-            SUMMER_PREFECT_LOGGER.error(
-                f"检查流部署 '{deployment_name}' 时出错: {e}\n报错堆栈:\n{traceback.format_exc()}"
+                "检查/创建工作池 '%s' 时发生异常: %s", work_pool_name, exc
             )
             raise
 
 
-def check_flow_deployment_sync(deployment_name: str) -> bool:
-    """检查流部署是否存在的同步版本, 存在则返回 True, 不存在则返回 False"""
-    return asyncio.run(check_flow_deployment(deployment_name))
+def check_work_pool_sync(
+    work_pool_name: str,
+    project_base_dir: Path,
+    *,
+    command_runner: CommandRunner = _run_command,
+    client_factory: Callable[[], object] = get_client,
+    work_pool_type: str = "docker",
+) -> bool:
+    """
+    ``check_work_pool`` 的同步包装。
+    """
+    return asyncio.run(
+        check_work_pool(
+            work_pool_name=work_pool_name,
+            project_base_dir=project_base_dir,
+            command_runner=command_runner,
+            client_factory=client_factory,
+            work_pool_type=work_pool_type,
+        )
+    )
+
+
+async def check_flow_deployment(
+    deployment_name: str,
+    *,
+    client_factory: Callable[[], object] = get_client,
+) -> bool:
+    """
+    检查 Prefect 部署是否存在。
+
+    Args:
+        deployment_name: 部署名称。
+        client_factory: Prefect 客户端工厂。
+
+    Returns:
+        bool: ``True`` 表示部署存在，``False`` 表示未找到。
+    """
+    async with client_factory() as client:  # type: ignore[func-returns-value]
+        try:
+            deployments = await client.read_deployments()  # type: ignore[attr-defined]
+        except Exception as exc:  # pragma: no cover
+            SUMMER_PREFECT_LOGGER.error(
+                "读取部署列表时发生异常: %s", exc, exc_info=True
+            )
+            raise
+
+        match_found = any(d.name == deployment_name for d in deployments)  # type: ignore[attr-defined]
+        if match_found:
+            SUMMER_PREFECT_LOGGER.info(
+                "流部署 '%s' 已存在", deployment_name, extra={"info_color": "green"}
+            )
+        else:
+            SUMMER_PREFECT_LOGGER.warning(
+                "流部署 '%s' 不存在", deployment_name, extra={"info_color": "yellow"}
+            )
+        return match_found
+
+
+def check_flow_deployment_sync(
+    deployment_name: str,
+    *,
+    client_factory: Callable[[], object] = get_client,
+) -> bool:
+    """
+    ``check_flow_deployment`` 的同步包装。
+    """
+    return asyncio.run(
+        check_flow_deployment(deployment_name=deployment_name, client_factory=client_factory)
+    )
+
+
+__all__ = [
+    "export_poetry_requirements_to_pips",
+    "check_work_pool",
+    "check_work_pool_sync",
+    "check_flow_deployment",
+    "check_flow_deployment_sync",
+    "SUMMER_PREFECT_LOGGER",
+]
