@@ -1,0 +1,19 @@
+[project]
+name = "summer-modules-ai"
+dynamic = ["version"]
+description = "AI helpers for summer-modules"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.66.3",
+    "summer-modules-core>=1.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "../../VERSION"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/summer_modules_ai"]

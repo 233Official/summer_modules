@@ -4,7 +4,10 @@ dynamic = ["version"]
 description = "summery233's python modules"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["summer-modules-core==1.1.0"]
+dependencies = [
+    "summer-modules-core==1.1.0",
+    "summer-modules-ai==1.1.0",
+]
 [[project.authors]]
 name = "233"
 email = "ayusummer233@outlook.com"
@@ -20,7 +23,11 @@ dev = ["pytest>=8.4.2", "toml>=0.10.2"]
 path = "VERSION"
 
 [tool.uv.workspace]
-members = ["packages/summer_modules_core"]
+members = [
+    "packages/summer_modules_core",
+    "packages/summer_modules_ai",
+]
 
-[tool.uv.sources.summer-modules-core]
-workspace = true
+[tool.uv.sources]
+summer-modules-core = { workspace = true }
+summer-modules-ai = { workspace = true }

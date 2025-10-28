@@ -1,19 +1,22 @@
-import toml
-from openai import OpenAI
 from pathlib import Path
-from summer_modules.logger import init_and_get_logger
+from typing import Any
+
+from openai import OpenAI
+
+from summer_modules_core.logger import init_and_get_logger
 
 CURRENT_DIR = Path(__file__).resolve().parent
-logger = init_and_get_logger(CURRENT_DIR, "deepseek_loogger")
+logger = init_and_get_logger(CURRENT_DIR, "deepseek_logger")
 
 
 class DeepseekClient:
     """DeepseekClient 类封装了与 Deepseek API 交互的功能"""
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, *, client: OpenAI | None = None):
         self.api_key = api_key
-        self.client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
-        self.client.temperature = 1.3  # type: ignore
+        if client is None:
+            client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+        self.client = client
 
     def translate_text(self, text: str) -> str | None:
         """
@@ -31,7 +34,7 @@ class DeepseekClient:
                 ],
                 temperature=0.3,
             )
-            content = response.choices[0].message.content
+            content: Any = response.choices[0].message.content
             logger.info(f"\n原文: {text}\n译文: {content}\n")
             return content
         except Exception as e:
