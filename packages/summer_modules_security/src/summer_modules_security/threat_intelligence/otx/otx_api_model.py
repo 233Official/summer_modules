@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, Any
 from datetime import datetime
 
-from summer_modules.model import BaseResponseModel
+from summer_modules_core.model import BaseResponseModel
 
 
 class OTXIOCModel(BaseModel):
