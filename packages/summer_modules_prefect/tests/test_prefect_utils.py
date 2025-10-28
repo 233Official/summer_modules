@@ -45,7 +45,7 @@ class DummyClient:
 
     async def read_work_pool(self, work_pool_name: str) -> None:
         if not self._work_pool_exists:
-            raise ObjectNotFound(f"{work_pool_name} not found")
+            raise ObjectNotFound(http_exc=Exception(f"{work_pool_name} not found"))
 
     async def read_deployments(self):
         return [SimpleNamespace(name=name) for name in self._deployments]
