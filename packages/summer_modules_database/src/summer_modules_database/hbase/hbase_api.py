@@ -85,7 +85,7 @@ class HBaseAPI:
         # 建立连接
         self._connect()
         self.ssh_connection.connect(
-            enbale_hbase_shell=True,
+            enable_hbase_shell=True,
             terminal_width=ssh_terminal_width,  # SSH 终端宽度
             # terminal_width=1024 * 1024,  # 终端宽度
             # terminal_height=1024 * 1024,  # 终端高度
