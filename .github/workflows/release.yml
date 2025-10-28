@@ -16,13 +16,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-            python-version: '3.13'
-
       - name: Set up uv
         uses: astral-sh/setup-uv@v1
+
+      - name: Ensure Python 3.13 available to uv
+        run: uv python install 3.13
 
       - name: Sync dependencies
         run: uv sync --frozen
