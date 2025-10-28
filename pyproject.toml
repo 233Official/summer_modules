@@ -20,6 +20,12 @@ dependencies = [
 name = "233"
 email = "ayusummer233@outlook.com"
 
+[project.urls]
+"Code" = "https://github.com/233Official/summer_modules"
+"Documentation" = "https://github.com/233Official/summer_modules#readme"
+"Changelog" = "https://github.com/233Official/summer_modules/blob/main/CHANGELOG.md"
+"Issue Tracker" = "https://github.com/233Official/summer_modules/issues"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

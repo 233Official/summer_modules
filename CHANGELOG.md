@@ -2,6 +2,29 @@
 
 本文件记录了 summer_modules 项目的主要变更。
 
+## [1.1.0] - 2025-10-28
+
+> 本版本完成全面模块拆分，依赖管理切换为 `uv`，并引入自动化发布流程。
+
+### Features
+
+- 使用 `uv` 管理依赖与打包，提供统一脚本 `scripts/bump_dependencies.py`
+- 拆分仓库为多个子包（core/ai/bot/charts/database/excel/markdown/prefect/security/ssh 等），主包 `summer-modules` 改为聚合依赖
+- `summer-modules-security` 新增 `_storage` 抽象、OTX/CVE/CNNVD/Nuclei 等接口支持注入与离线缓存
+- 新增覆盖各子包的示例与 pytest 测试，确保核心能力可单独回归
+
+### Improvements
+
+- README 重写：记录子包结构、uv 使用方式与发布流程
+- CHANGELOG 按 Keep a Changelog 规范补充 v1.1.0 说明
+- GitHub Actions：新增 tag 触发的自动发布工作流，串行发布所有子包与聚合包
+- 清理旧示例缓存与 `__pycache__`，修复硬编码密钥/目录、日志初始化等问题
+
+### Others
+
+- 子包 `pyproject.toml` 对齐版本号并指向共享 `VERSION`
+- `uv.lock`、根 `pyproject.toml` 纳入全部子包 workspace 配置
+
 ## [1.0.0] - 2025-10-27
 
 > 本版本为归档版本，后续将进行破坏式更新和模块拆分。

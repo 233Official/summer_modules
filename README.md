@@ -6,65 +6,82 @@
 
 ## 简介
 
-`summer_modules` 是一个面向日常开发、数据分析与安全自动化的 Python 工具箱，涵盖常用的通用工具、日志、Excel、Markdown、图表、网络安全、威胁情报、Web请求等模块。适合个人开发、自动化脚本、数据处理等多场景。
+`summer_modules` 是一个面向日常开发、数据分析与安全自动化的 Python 工具箱，自 `v1.1.0` 起全面拆分为多个按需安装的子包（如 `summer-modules-core`、`summer-modules-ai` 等），通过聚合包 `summer-modules` 统一依赖。适合个人开发、自动化脚本、数据处理与安全分析等多场景。
 
 ---
 
 ## 安装与依赖管理
 
-本项目当前使用 [Poetry](https://python-poetry.org/) 进行依赖管理与打包。
+本项目使用 [uv](https://github.com/astral-sh/uv) 进行依赖管理与打包，建议 Python 版本 ≥ 3.11。
 
 ```bash
-# 推荐使用官方脚本安装 poetry
-curl -sSL https://install.python-poetry.org | python3 -
+# 安装 uv（官方推荐方式）
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 安装依赖
-poetry install
+# 同步依赖并创建虚拟环境
+uv sync
 
 # 运行测试
-poetry run pytest
+uv run pytest
 ```
 
-> 计划切换到 [uv](https://github.com/astral-sh/uv) 进行依赖管理，并拆分为多个子模块，敬请关注后续更新。
+> 若只想安装某个子包，可直接 `pip install summer-modules-core` 等；若安装聚合包，则 `pip install summer-modules`。
 
 ---
 
 ## 项目结构与模块功能
 
-项目结构简明如下：
+自 `v1.1.0` 起，核心源码全部位于 `packages/` 下的子包中：
 
 ```bash
-├── config.toml            # 配置文件
-├── pyproject.toml         # poetry项目配置文件
-├── summer_modules         # 模块主目录
-│   ├── ai                 # AI相关（如英译中）
-│   ├── charts             # 图表绘制与可视化
-│   ├── excel              # Excel 文件操作
-│   ├── logger             # 彩色日志、Prefect日志
-│   ├── markdown           # Markdown 编辑、图片托管
-│   ├── security           # 漏洞信息聚合、威胁情报
-│   ├── web_request_utils  # 随机 User-Agent、Web请求辅助
-│   └── utils.py           # 通用工具函数
-├── tests                  # 单元测试与用例
-└── ...
+├── packages/
+│   ├── summer_modules_core/      # 通用核心工具、日志、配置加载等
+│   ├── summer_modules_ai/        # AI/Deepseek 相关封装
+│   ├── summer_modules_bot/       # 企业微信 Bot 等消息推送
+│   ├── summer_modules_markdown/  # Markdown / 图床 / GitLab 图像托管
+│   ├── summer_modules_charts/    # 图表绘制组件
+│   ├── summer_modules_excel/     # Excel 读写与列名操作
+│   ├── summer_modules_database/  # PostgreSQL、HBase 等数据库工具
+│   ├── summer_modules_prefect/   # Prefect 工作池/部署工具
+│   ├── summer_modules_security/  # 漏洞信息、威胁情报、ATT&CK 等
+│   └── summer_modules_ssh/       # SSH 命令执行、HBase Shell 辅助
+├── scripts/                      # 辅助脚本（如版本依赖同步）
+├── .github/workflows/            # CI / 发布流程
+├── pyproject.toml                # 聚合包配置（依赖所有子包）
+└── README.md / CHANGELOG.md / config.toml
 ```
 
-主要模块功能：
+常用子包一览：
 
-- AI相关：如 `deepseek.py` 提供英译中等 AI 工具
-- charts：数据可视化与图表绘制
-- excel：Excel 文件读写、单元格操作、列名索引
-- logger：自定义彩色日志、Prefect日志
-- markdown：Markdown 文档处理、图片托管、OSS 支持
-- security：漏洞信息聚合（ATT&CK、CNNVD、CVE、NVD、GitHub Nuclei等）、威胁情报（如 OTX）
-- web_request_utils：随机 User-Agent 生成、Web请求辅助
-- utils：常用工具函数（JSON、TXT 文件读写、目录遍历等）
+| 包名 | 说明 |
+| --- | --- |
+| `summer-modules-core` | 通用工具、日志、配置加载、Web 请求辅助等基础能力 |
+| `summer-modules-ai` | Deepseek 英译中等 AI 工具封装 |
+| `summer-modules-bot` | 企业微信机器人等消息推送能力 |
+| `summer-modules-markdown` | Markdown 处理与图床、GitLab Image Host 支持 |
+| `summer-modules-charts` | 可视化与图表绘制工具 |
+| `summer-modules-excel` | Excel 读写、列名查找、单元格操作 |
+| `summer-modules-database` | PostgreSQL 分区、HBase API、数据导出等 |
+| `summer-modules-prefect` | Prefect 工作池巡检、部署检测、日志桥接 |
+| `summer-modules-security` | CVE/CNNVD/攻击矩阵解析、OTX 威胁情报、Nuclei 缓存等 |
+| `summer-modules-ssh` | SSH 命令执行、交互式命令、HBase Shell 支持 |
 
 ---
 
-## 快速上手
+## 快速上手（开发者）
 
-建议直接参考 `tests/` 目录下的测试用例，里面包含了各模块的典型用法示例。
+```bash
+# 克隆仓库后安装依赖
+uv sync
+
+# 运行单元测试
+uv run pytest
+
+# 进入某个子包示例
+uv run python -m packages.summer_modules_security.examples.threat_intelligence.otx.example_otx_api
+```
+
+建议直接参考 `packages/<module>/tests/` 与 `examples/`，涵盖各模块的典型用法。
 
 ---
 
@@ -77,10 +94,11 @@ poetry run pytest
 
 ---
 
-## 版本管理与分支策略
+## 版本管理与发布流程
 
-- 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/) 规范维护 CHANGELOG
-- 重要版本均会打 tag 归档，如 `v1.0.0` 为大模块归档版本，后续将进行破坏式更新与模块拆分
+- 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/) 维护 `CHANGELOG.md`
+- 从 `v1.1.0` 开始：更新根目录 `VERSION` → 执行 `scripts/bump_dependencies.py` → 推送 `v*` tag
+- GitHub Actions 会在推送 tag 后自动执行测试并发布所有子包及聚合包到 PyPI（需配置 `PYPI_TOKEN`）
 - 主分支 `main` 保持稳定，开发分支建议以 `feature/`、`fix/` 前缀命名
 
 ---
