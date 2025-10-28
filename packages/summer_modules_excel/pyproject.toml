@@ -1,0 +1,18 @@
+[project]
+name = "summer-modules-excel"
+dynamic = ["version"]
+description = "Excel helpers for summer-modules"
+requires-python = ">=3.11"
+dependencies = [
+    "openpyxl>=3.1.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "../../VERSION"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/summer_modules_excel"]
