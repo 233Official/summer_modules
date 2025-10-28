@@ -1,12 +1,21 @@
 {
   "extraPaths": [
     "packages/summer_modules_core/src",
-    "/Volumes/SummerDocs/Repo/Self/DailyNotesCode/Python/summer_modules",
-    "E:/Repo/Self/DailyNotesCode/Python/summer_modules"
+    "packages/summer_modules_ai/src",
+    "packages/summer_modules_bot/src",
+    "packages/summer_modules_charts/src",
+    "packages/summer_modules_database/src",
+    "packages/summer_modules_excel/src",
+    "packages/summer_modules_markdown/src",
+    "packages/summer_modules_microsoft/src",
+    "packages/summer_modules_prefect/src",
+    "packages/summer_modules_security/src",
+    "packages/summer_modules_ssh/src"
   ],
   "exclude": [
     ".venv",
-    "summer_modules/security/vulnerability/attck",
-    "summer_modules/security/vulnerability/cve"
+    "**/__pycache__",
+    "**/.pytest_cache",
+    "**/tmp"
   ]
 }
