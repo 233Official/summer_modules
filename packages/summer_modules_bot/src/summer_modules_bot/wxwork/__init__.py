@@ -1,8 +1,3 @@
-from pathlib import Path
-from summer_modules.logger import init_and_get_logger
+from summer_modules_bot import WXWORKBOT_LOGGER
 
-CURRENT_DIR = Path(__file__).resolve().parent
-WXWORKBOT_LOGGER = init_and_get_logger(
-    current_dir=CURRENT_DIR,
-    logger_name="wxworkbot",
-)
+__all__ = ["WXWORKBOT_LOGGER"]

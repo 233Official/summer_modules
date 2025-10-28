@@ -1,8 +1,14 @@
-from pathlib import Path
+"""Enterprise WeChat bot example utilities."""
 
-from tests.bot import BOT_CONFIG
+from pathlib import Path
+from typing import Any, Dict
+
+from .. import load_example_config
 
 CURRENT_DIR = Path(__file__).parent.resolve()
 
-WXWORKBOT_CONFIG = BOT_CONFIG["wxwork"]
-WXWORKBOT_WEBHOOK = WXWORKBOT_CONFIG["webhook"]
+
+def get_wxwork_config() -> Dict[str, Any]:
+    bot_config = load_example_config("bot")
+    wxwork_config = bot_config.get("wxwork", {}) if isinstance(bot_config, dict) else {}
+    return wxwork_config if isinstance(wxwork_config, dict) else {}

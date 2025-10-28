@@ -1,9 +1,10 @@
-import httpx
-from pathlib import Path
 import base64
 import hashlib
+from pathlib import Path
 
-from summer_modules.bot.wxwork import WXWORKBOT_LOGGER
+import httpx
+
+from summer_modules_bot import WXWORKBOT_LOGGER
 
 
 class WXWorkBot:

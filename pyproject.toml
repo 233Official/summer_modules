@@ -7,6 +7,7 @@ requires-python = ">=3.11"
 dependencies = [
     "summer-modules-core==1.1.0",
     "summer-modules-ai==1.1.0",
+    "summer-modules-bot==1.1.0",
 ]
 [[project.authors]]
 name = "233"
@@ -26,8 +27,10 @@ path = "VERSION"
 members = [
     "packages/summer_modules_core",
     "packages/summer_modules_ai",
+    "packages/summer_modules_bot",
 ]
 
 [tool.uv.sources]
 summer-modules-core = { workspace = true }
 summer-modules-ai = { workspace = true }
+summer-modules-bot = { workspace = true }

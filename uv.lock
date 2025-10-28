@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 members = [
     "summer-modules",
     "summer-modules-ai",
+    "summer-modules-bot",
     "summer-modules-core",
 ]
 
@@ -383,6 +384,7 @@ name = "summer-modules"
 source = { editable = "." }
 dependencies = [
     { name = "summer-modules-ai" },
+    { name = "summer-modules-bot" },
     { name = "summer-modules-core" },
 ]
 
@@ -395,6 +397,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "summer-modules-ai", editable = "packages/summer_modules_ai" },
+    { name = "summer-modules-bot", editable = "packages/summer_modules_bot" },
     { name = "summer-modules-core", editable = "packages/summer_modules_core" },
 ]
 
@@ -415,6 +418,20 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "openai", specifier = ">=1.66.3" },
+    { name = "summer-modules-core", editable = "packages/summer_modules_core" },
+]
+
+[[package]]
+name = "summer-modules-bot"
+source = { editable = "packages/summer_modules_bot" }
+dependencies = [
+    { name = "httpx" },
+    { name = "summer-modules-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "summer-modules-core", editable = "packages/summer_modules_core" },
 ]
 
