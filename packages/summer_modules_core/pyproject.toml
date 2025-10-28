@@ -1,0 +1,20 @@
+[project]
+name = "summer-modules-core"
+dynamic = ["version"]
+description = "Core utilities for summer-modules"
+requires-python = ">=3.11"
+dependencies = ["httpx>=0.28"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "../../VERSION"
+
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/summer_modules_core"]
+
+[tool.hatch.build]
+include = ["src/summer_modules_core/resources/**"]

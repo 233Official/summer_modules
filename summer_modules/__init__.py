@@ -1,5 +1,5 @@
 from pathlib import Path
-from summer_modules.logger import init_and_get_logger
+from summer_modules_core.logger import init_and_get_logger
 
 CURRENT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = CURRENT_DIR.parent

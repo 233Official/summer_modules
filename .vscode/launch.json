@@ -2,36 +2,22 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "SummerModules单文件脚本调试",
+      "name": "BumpDependencies",
       "type": "debugpy",
       "request": "launch",
-      "program": "${file}",
+      "program": "${workspaceFolder}/scripts/bump_dependencies.py",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "SummerModules 调试当前模块",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/debug_module.py",
+      "args": ["${file}"],
       "console": "integratedTerminal",
       "env": {
         "PYTHONPATH": "${workspaceFolder}"
       }
-    },
-    {
-      "name": "Debug current pytest file",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "pytest",
-      "args": [
-        "${file}",
-        "-v"
-      ],
-      "justMyCode": false
-    },
-    {
-      "name": "Debug current pytest function",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "pytest",
-      "args": [
-        "${file}::${selectedText}",
-        "-v"
-      ],
-      "justMyCode": false
     }
   ]
 }
