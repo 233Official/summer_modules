@@ -12,9 +12,9 @@ import traceback
 from zoneinfo import ZoneInfo
 from datetime import datetime
 
-from summer_modules.utils import read_text_file_to_string
-from summer_modules.markdown.oss import OSS_LOGGER
-from summer_modules.markdown.image_host.gitlab import GitlabImageHost
+from summer_modules_core.utils import read_text_file_to_string
+from summer_modules_markdown.oss import OSS_LOGGER
+from summer_modules_markdown.image_host.gitlab import GitlabImageHost
 
 
 class GitlabOSS(GitlabImageHost):

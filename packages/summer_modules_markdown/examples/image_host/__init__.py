@@ -1,10 +1,13 @@
-from pathlib import Path
-import toml
+"""Image host example helpers."""
 
-from tests import CONFIG
+from pathlib import Path
+from typing import Any, Dict
+
+from .. import load_example_config
 
 CURRENT_DIR = Path(__file__).parent.resolve()
 
-IMAGE_HOST_CONFIG = CONFIG.get("image_host", {})
-if not IMAGE_HOST_CONFIG:
-    raise ValueError("配置文件中未找到 image_host 配置项")
+
+def get_image_host_config() -> Dict[str, Any]:
+    config = load_example_config("image_host")
+    return config if isinstance(config, dict) else {}

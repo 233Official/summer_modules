@@ -8,6 +8,7 @@ members = [
     "summer-modules-ai",
     "summer-modules-bot",
     "summer-modules-core",
+    "summer-modules-markdown",
 ]
 
 [[package]]
@@ -386,6 +387,7 @@ dependencies = [
     { name = "summer-modules-ai" },
     { name = "summer-modules-bot" },
     { name = "summer-modules-core" },
+    { name = "summer-modules-markdown" },
 ]
 
 [package.dev-dependencies]
@@ -399,6 +401,7 @@ requires-dist = [
     { name = "summer-modules-ai", editable = "packages/summer_modules_ai" },
     { name = "summer-modules-bot", editable = "packages/summer_modules_bot" },
     { name = "summer-modules-core", editable = "packages/summer_modules_core" },
+    { name = "summer-modules-markdown", editable = "packages/summer_modules_markdown" },
 ]
 
 [package.metadata.requires-dev]
@@ -444,6 +447,22 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "httpx", specifier = ">=0.28" }]
+
+[[package]]
+name = "summer-modules-markdown"
+source = { editable = "packages/summer_modules_markdown" }
+dependencies = [
+    { name = "httpx" },
+    { name = "summer-modules-ai" },
+    { name = "summer-modules-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "summer-modules-ai", editable = "packages/summer_modules_ai" },
+    { name = "summer-modules-core", editable = "packages/summer_modules_core" },
+]
 
 [[package]]
 name = "toml"

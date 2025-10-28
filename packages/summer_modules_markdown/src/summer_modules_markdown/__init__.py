@@ -1,14 +1,16 @@
 # markdown 模块,用于基本的 markdown 元素添加
 from pathlib import Path
-
-from summer_modules.logger import init_and_get_logger
 from typing import Union
 
-CURRENT_DIR = Path(__file__).parent.resolve()
+from summer_modules_core.logger import init_and_get_logger
+
+PACKAGE_ROOT = Path(__file__).parent.resolve()
 MARKDOWN_LOGGER = init_and_get_logger(
-    current_dir=CURRENT_DIR, logger_name="markdown_logger"
+    current_dir=PACKAGE_ROOT, logger_name="markdown_logger"
 )
-TMP_MARKDOWN_FILEPATH = (CURRENT_DIR / "logs/tmp_markdown.md").resolve()
+TMP_MARKDOWN_FILEPATH = (PACKAGE_ROOT / "tmp_markdown.md").resolve()
+
+__all__ = ["Markdown", "MARKDOWN_LOGGER", "TMP_MARKDOWN_FILEPATH"]
 
 
 class Markdown:

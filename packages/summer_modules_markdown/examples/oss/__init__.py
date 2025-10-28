@@ -1,10 +1,13 @@
-from pathlib import Path
-import toml
+"""OSS example helpers."""
 
-from tests import CONFIG
+from pathlib import Path
+from typing import Any, Dict
+
+from .. import load_example_config
 
 CURRENT_DIR = Path(__file__).parent.resolve()
 
-OSS_CONFIG = CONFIG["oss"]
-if not OSS_CONFIG:
-    raise ValueError("配置文件中未找到 oss 配置项")
+
+def get_oss_config() -> Dict[str, Any]:
+    config = load_example_config("oss")
+    return config if isinstance(config, dict) else {}

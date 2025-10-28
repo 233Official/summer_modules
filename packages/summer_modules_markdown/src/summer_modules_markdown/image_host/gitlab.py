@@ -12,7 +12,7 @@ import traceback
 from zoneinfo import ZoneInfo
 from datetime import datetime
 
-from summer_modules.markdown.image_host import IMAGE_HOST_LOGGER
+from summer_modules_markdown.image_host import IMAGE_HOST_LOGGER
 
 
 class GitlabImageHost:

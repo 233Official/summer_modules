@@ -1,0 +1,20 @@
+[project]
+name = "summer-modules-markdown"
+dynamic = ["version"]
+description = "Markdown helpers and integrations for summer-modules"
+requires-python = ">=3.11"
+dependencies = [
+    "summer-modules-core>=1.1.0",
+    "summer-modules-ai>=1.1.0",
+    "httpx>=0.28.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "../../VERSION"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/summer_modules_markdown"]
