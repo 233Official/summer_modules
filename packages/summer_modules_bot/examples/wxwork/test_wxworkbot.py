@@ -75,7 +75,7 @@ def main() -> None:
     test_post_md_message()
     test_post_md_message_v2_from_path()
     # 如需发送图片，请取消下行注释并设置 WXWORK_IMAGE_PATH
-    # test_post_img()
+    test_post_img()
 
 
 if __name__ == "__main__":
