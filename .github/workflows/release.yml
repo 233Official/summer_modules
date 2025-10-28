@@ -27,7 +27,7 @@ jobs:
         run: uv sync --dev
 
       - name: Run tests
-        run: uv run --with dev python -m pytest
+        run: .venv/bin/python -m pytest
 
       - name: Publish workspace packages
         run: |
