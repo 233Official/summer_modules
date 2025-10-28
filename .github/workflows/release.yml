@@ -1,0 +1,56 @@
+name: Release packages
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  test-and-publish:
+    name: Test and publish to PyPI
+    runs-on: ubuntu-latest
+    env:
+      UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+      UV_LINK_MODE: copy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v1
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Run tests
+        run: uv run pytest
+
+      - name: Publish workspace packages
+        run: |
+          set -euo pipefail
+
+          packages=(
+            summer_modules_core
+            summer_modules_ai
+            summer_modules_bot
+            summer_modules_markdown
+            summer_modules_charts
+            summer_modules_database
+            summer_modules_excel
+            summer_modules_prefect
+            summer_modules_security
+            summer_modules_ssh
+          )
+
+          for pkg in "${packages[@]}"; do
+            echo "::group::Publishing ${pkg}"
+            uv build --package "packages/${pkg}"
+            uv publish --package "packages/${pkg}" --yes
+            echo "::endgroup::"
+          done
+
+          echo "::group::Publishing summer-modules (aggregator)"
+          uv build --package .
+          uv publish --package . --yes
+          echo "::endgroup::"
+
