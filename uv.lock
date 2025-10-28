@@ -16,6 +16,7 @@ members = [
     "summer-modules-core",
     "summer-modules-database",
     "summer-modules-markdown",
+    "summer-modules-ssh",
 ]
 
 [[package]]
@@ -1236,6 +1237,7 @@ dependencies = [
     { name = "summer-modules-core" },
     { name = "summer-modules-database" },
     { name = "summer-modules-markdown" },
+    { name = "summer-modules-ssh" },
 ]
 
 [package.dev-dependencies]
@@ -1252,6 +1254,7 @@ requires-dist = [
     { name = "summer-modules-core", editable = "packages/summer_modules_core" },
     { name = "summer-modules-database", editable = "packages/summer_modules_database" },
     { name = "summer-modules-markdown", editable = "packages/summer_modules_markdown" },
+    { name = "summer-modules-ssh", editable = "packages/summer_modules_ssh" },
 ]
 
 [package.metadata.requires-dev]
@@ -1349,6 +1352,20 @@ dependencies = [
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "summer-modules-ai", editable = "packages/summer_modules_ai" },
+    { name = "summer-modules-core", editable = "packages/summer_modules_core" },
+]
+
+[[package]]
+name = "summer-modules-ssh"
+source = { editable = "packages/summer_modules_ssh" }
+dependencies = [
+    { name = "paramiko" },
+    { name = "summer-modules-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "paramiko", specifier = ">=3.5.1" },
     { name = "summer-modules-core", editable = "packages/summer_modules_core" },
 ]
 

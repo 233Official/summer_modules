@@ -1,19 +1,23 @@
-from pathlib import Path
-from typing import Union, Optional, List
-import paramiko
-import time
-import re
-import traceback
+from __future__ import annotations
 
-from summer_modules.logger import init_and_get_logger
-from summer_modules.ssh.ssh_model import (
-    InteractiveCommandResult,
+import paramiko
+import re
+import time
+import traceback
+import warnings
+from pathlib import Path
+from typing import List, Optional, Union
+
+from summer_modules_core.logger import init_and_get_logger
+
+from .ssh_model import (
     CommandResult,
+    InteractiveCommandResult,
     SingleCommandResult,
 )
 
-CURRENT_DIR = Path(__file__).parent.resolve()
-SSH_LOGGER = init_and_get_logger(current_dir=CURRENT_DIR, logger_name="ssh_logger")
+PACKAGE_ROOT = Path(__file__).parent.resolve()
+SSH_LOGGER = init_and_get_logger(PACKAGE_ROOT, "ssh_logger")
 
 
 class SSHConnection:
@@ -38,17 +42,23 @@ class SSHConnection:
 
     def connect(
         self,
-        enbale_hbase_shell: bool = False,
+        enable_hbase_shell: bool = False,
+        *,
         terminal_width: int = 80,
         terminal_height: int = 24,
+        **legacy_kwargs: object,
     ) -> None:
         """建立 SSH 连接
 
         Args:
-            enbale_hbase_shell: 是否初始化 HBase shell, 默认为 False
+            enable_hbase_shell: 是否初始化 HBase shell, 默认为 False
             terminal_width: 终端宽度（字符数），默认为 80
             terminal_height: 终端高度（行数），默认为 24
         """
+        if legacy_kwargs:
+            unexpected = ", ".join(legacy_kwargs.keys())
+            raise TypeError(f"未知的关键字参数: {unexpected}")
+
         self.client = paramiko.SSHClient()
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.client.connect(
@@ -70,7 +80,7 @@ class SSHConnection:
 
         SSH_LOGGER.info(f"已初始化交互式 shell 用于执行命令集")
         # 如果需要 HBase shell，则初始化
-        if enbale_hbase_shell:
+        if enable_hbase_shell:
             self.hbase_shell = self.client.invoke_shell(
                 term="xterm",  # 设置 HBase shell 的终端类型
                 width=terminal_width,  # HBase shell 终端宽度（字符数）
@@ -565,7 +575,9 @@ class SSHConnection:
         output = ""
         while True:
             if self.hbase_shell.recv_ready():
-                chunk = self.hbase_shell.recv(buffer_size).decode("utf-8", errors="ignore")
+                chunk = self.hbase_shell.recv(buffer_size).decode(
+                    "utf-8", errors="ignore"
+                )
                 output += chunk
                 SSH_LOGGER.debug(f"接收到 HBase shell 输出: {chunk.strip()}")
             else:
@@ -624,6 +636,9 @@ class SSHConnection:
             return ""
 
         lines = output.split("\n")
+        command_stripped = command.strip()
+        if lines and lines[0].strip() == command_stripped:
+            lines = lines[1:]
         result_lines = []
 
         # 需要跳过的模式
@@ -640,11 +655,11 @@ class SSHConnection:
         ]
 
         # 添加当前命令到跳过列表（但不包括可能的密码）
-        if command.strip() and " " in command:  # 只跳过包含空格的命令行
-            skip_patterns.append(re.escape(command.strip()))
+        if command_stripped and " " in command_stripped:  # 只跳过包含空格的命令行
+            skip_patterns.append(re.escape(command_stripped))
 
         # 对于密码输入，特殊处理
-        if command.strip() and " " not in command.strip():
+        if command_stripped and " " not in command_stripped:
             # 可能是密码，移除echo关闭和密码相关提示
             lines = [
                 l for l in lines if not any(x in l for x in ["password", "[sudo]"])
@@ -788,3 +803,6 @@ class SSHConnection:
                 SSH_LOGGER.error(f"关闭 SSH 连接时出错: {e}")
             finally:
                 self.client = None
+
+
+__all__ = ["SSHConnection"]

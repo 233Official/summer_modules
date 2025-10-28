@@ -11,6 +11,7 @@ dependencies = [
     "summer-modules-markdown==1.1.0",
     "summer-modules-charts==1.1.0",
     "summer-modules-database==1.1.0",
+    "summer-modules-ssh==1.1.0",
 ]
 [[project.authors]]
 name = "233"
@@ -34,6 +35,7 @@ members = [
     "packages/summer_modules_markdown",
     "packages/summer_modules_charts",
     "packages/summer_modules_database",
+    "packages/summer_modules_ssh",
 ]
 
 [tool.uv.sources]
@@ -43,3 +45,4 @@ summer-modules-bot = { workspace = true }
 summer-modules-markdown = { workspace = true }
 summer-modules-charts = { workspace = true }
 summer-modules-database = { workspace = true }
+summer-modules-ssh = { workspace = true }
