@@ -39,26 +39,26 @@ jobs:
           set -euo pipefail
 
           packages=(
-            summer_modules_core
-            summer_modules_ai
-            summer_modules_bot
-            summer_modules_markdown
-            summer_modules_charts
-            summer_modules_database
-            summer_modules_excel
-            summer_modules_prefect
-            summer_modules_security
-            summer_modules_ssh
+            summer-modules-core
+            summer-modules-ai
+            summer-modules-bot
+            summer-modules-markdown
+            summer-modules-charts
+            summer-modules-database
+            summer-modules-excel
+            summer-modules-prefect
+            summer-modules-security
+            summer-modules-ssh
           )
 
           for pkg in "${packages[@]}"; do
             echo "::group::Publishing ${pkg}"
-            uv build --package "packages/${pkg}"
-            uv publish --package "packages/${pkg}" --yes
+            uv build --package "${pkg}"
+            uv publish --package "${pkg}" --yes
             echo "::endgroup::"
           done
 
           echo "::group::Publishing summer-modules (aggregator)"
-          uv build --package .
-          uv publish --package . --yes
+          uv build
+          uv publish --yes
           echo "::endgroup::"
