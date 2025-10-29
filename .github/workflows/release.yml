@@ -30,7 +30,7 @@ jobs:
         run: uv pip install pytest toml
 
       - name: Run tests
-        run: uv run pytest
+        run: uv run pytest packages/summer_modules_*/tests
 
       - name: Publish workspace packages
         run: |
