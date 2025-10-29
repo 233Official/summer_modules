@@ -57,12 +57,13 @@ jobs:
             echo "::group::Publishing ${name}"
             pushd "${dir}" >/dev/null
             uv build
-            uv publish --yes
+            pattern="../../dist/${name//-/_}-*"
+            uv publish ${pattern}
             popd >/dev/null
             echo "::endgroup::"
           done
 
           echo "::group::Publishing summer-modules (aggregator)"
           uv build
-          uv publish --yes
+          uv publish dist/summer_modules-*
           echo "::endgroup::"
