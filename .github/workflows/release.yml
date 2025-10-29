@@ -26,8 +26,11 @@ jobs:
       - name: Sync dependencies
         run: uv sync --dev
 
+      - name: Ensure test tools
+        run: uv pip install pytest toml
+
       - name: Run tests
-        run: uv run --group dev pytest
+        run: uv run pytest
 
       - name: Publish workspace packages
         run: |
