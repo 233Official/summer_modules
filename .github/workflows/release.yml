@@ -19,6 +19,8 @@ jobs:
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v1
+        with:
+          version: "0.8.22"
 
       - name: Ensure Python 3.13 available to uv
         run: uv python install 3.12
