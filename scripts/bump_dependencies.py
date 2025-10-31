@@ -9,7 +9,18 @@ VERSION = toml.load(VERSION_PATH)["__version__"]
 pyproject_path = PROJECT_ROOT / "pyproject.toml"
 data = toml.load(pyproject_path)
 
-packages_to_pin = {"summer-modules-core"}
+packages_to_pin = {
+    "summer-modules-core",
+    "summer-modules-ai",
+    "summer-modules-bot",
+    "summer-modules-markdown",
+    "summer-modules-charts",
+    "summer-modules-database",
+    "summer-modules-excel",
+    "summer-modules-prefect",
+    "summer-modules-security",
+    "summer-modules-ssh",
+}
 
 new_deps = []
 for dep in data["project"]["dependencies"]:
