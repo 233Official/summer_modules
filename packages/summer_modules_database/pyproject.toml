@@ -9,9 +9,9 @@ dependencies = [
     "thrift>=0.22.0",
     "httpx>=0.28.1",
     "pympler>=1.1",
-    "summer-modules-core>=1.1.0",
-    "summer-modules-markdown>=1.1.0",
-    "summer-modules-ssh>=1.1.0",
+    "summer-modules-core>=1.1.1",
+    "summer-modules-markdown>=1.1.1",
+    "summer-modules-ssh>=1.1.1",
 ]
 
 [build-system]

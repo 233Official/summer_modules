@@ -5,26 +5,20 @@ description = "summery233's python modules"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "summer-modules-core==1.1.0",
-    "summer-modules-ai==1.1.0",
-    "summer-modules-bot==1.1.0",
-    "summer-modules-markdown==1.1.0",
-    "summer-modules-charts==1.1.0",
-    "summer-modules-database==1.1.0",
-    "summer-modules-excel==1.1.0",
-    "summer-modules-prefect==1.1.0",
-    "summer-modules-security==1.1.0",
-    "summer-modules-ssh==1.1.0",
+    "summer-modules-core==1.1.1",
+    "summer-modules-ai==1.1.1",
+    "summer-modules-bot==1.1.1",
+    "summer-modules-markdown==1.1.1",
+    "summer-modules-charts==1.1.1",
+    "summer-modules-database==1.1.1",
+    "summer-modules-excel==1.1.1",
+    "summer-modules-prefect==1.1.1",
+    "summer-modules-security==1.1.1",
+    "summer-modules-ssh==1.1.1",
 ]
 [[project.authors]]
 name = "233"
 email = "ayusummer233@outlook.com"
-
-[project.urls]
-"Code" = "https://github.com/233Official/summer_modules"
-"Documentation" = "https://github.com/233Official/summer_modules#readme"
-"Changelog" = "https://github.com/233Official/summer_modules/blob/main/CHANGELOG.md"
-"Issue Tracker" = "https://github.com/233Official/summer_modules/issues"
 
 [build-system]
 requires = ["hatchling"]
@@ -32,6 +26,12 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = ["pytest>=8.4.2", "toml>=0.10.2"]
+
+[project.urls]
+Code = "https://github.com/233Official/summer_modules"
+Documentation = "https://github.com/233Official/summer_modules#readme"
+Changelog = "https://github.com/233Official/summer_modules/blob/main/CHANGELOG.md"
+"Issue Tracker" = "https://github.com/233Official/summer_modules/issues"
 
 [tool.hatch.version]
 path = "VERSION"
@@ -50,14 +50,32 @@ members = [
     "packages/summer_modules_ssh",
 ]
 
-[tool.uv.sources]
-summer-modules-core = { workspace = true }
-summer-modules-ai = { workspace = true }
-summer-modules-bot = { workspace = true }
-summer-modules-markdown = { workspace = true }
-summer-modules-charts = { workspace = true }
-summer-modules-database = { workspace = true }
-summer-modules-excel = { workspace = true }
-summer-modules-prefect = { workspace = true }
-summer-modules-security = { workspace = true }
-summer-modules-ssh = { workspace = true }
+[tool.uv.sources.summer-modules-core]
+workspace = true
+
+[tool.uv.sources.summer-modules-ai]
+workspace = true
+
+[tool.uv.sources.summer-modules-bot]
+workspace = true
+
+[tool.uv.sources.summer-modules-markdown]
+workspace = true
+
+[tool.uv.sources.summer-modules-charts]
+workspace = true
+
+[tool.uv.sources.summer-modules-database]
+workspace = true
+
+[tool.uv.sources.summer-modules-excel]
+workspace = true
+
+[tool.uv.sources.summer-modules-prefect]
+workspace = true
+
+[tool.uv.sources.summer-modules-security]
+workspace = true
+
+[tool.uv.sources.summer-modules-ssh]
+workspace = true

@@ -5,7 +5,7 @@ description = "Enterprise WeChat bot helpers for summer-modules"
 requires-python = ">=3.11"
 dependencies = [
     "httpx>=0.28.1",
-    "summer-modules-core>=1.1.0",
+    "summer-modules-core>=1.1.1",
 ]
 
 [build-system]
