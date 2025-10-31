@@ -16,5 +16,10 @@ path = "../../VERSION"
 [tool.hatch.build.targets.wheel]
 packages = ["src/summer_modules_core"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/summer_modules_core",
+]
+
 [tool.hatch.build]
 include = ["src/summer_modules_core/resources/**"]
