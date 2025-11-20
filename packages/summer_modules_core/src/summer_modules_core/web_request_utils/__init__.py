@@ -55,13 +55,10 @@ class RetryableHTTPClient:
         self,
         method: str,
         url: str,
-        headers: Dict[str, str] | None = None,
-        params: Dict[str, Any] | None = None,
-        json: Dict[str, Any] | None = None,
-        data: Any = None,
-        timeout: int = 30,
-        success_codes: List[int] | None = None,
-        description: str = "",
+        *,
+        success_codes=None,
+        description="",
+        **request_kwargs,
     ) -> Dict[str, Any]:
         """
         发送HTTP请求并自动处理重试
@@ -81,26 +78,19 @@ class RetryableHTTPClient:
         retry_count = 0
         current_delay = self.retry_delay
         response = None
-        request_desc = description or f"{method} {url} 参数: {params} 数据: {data}"
+        request_desc = (
+            description
+            or f"{method} {url} 参数: {request_kwargs.get('params')} 数据: {request_kwargs.get('data')}"
+        )
 
         while retry_count < self.max_retries:
             try:
                 with httpx.Client() as client:
-                    response = client.request(
-                        method=method,
-                        url=url,
-                        headers=headers,
-                        params=params,
-                        json=json,
-                        data=data,
-                        timeout=timeout,
-                    )
+                    response = client.request(method=method, url=url, **request_kwargs)
 
                 if response.status_code in success_codes:
                     if self.logger:
-                        self.logger.info(
-                            f"请求成功: {request_desc}"
-                        )
+                        self.logger.info(f"请求成功: {request_desc}")
                     return response.json()
                 else:
                     if self.logger:
