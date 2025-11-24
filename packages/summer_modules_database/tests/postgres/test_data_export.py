@@ -37,7 +37,7 @@ class DummyConnection:
         self.cursor_instance = DummyCursor()
         self.closed = False
 
-    def cursor(self, cursor_factory=None):
+    def cursor(self, row_factory=None, **kwargs):
         return self.cursor_instance
 
     def close(self):

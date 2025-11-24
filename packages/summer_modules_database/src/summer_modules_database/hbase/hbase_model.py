@@ -1,5 +1,5 @@
 from typing import Optional, Any, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 
 
@@ -151,6 +151,8 @@ class ReconstructTruncatedLinesResult(BaseModel):
 class WHOISData(BaseModel):
     """WHOIS数据模型"""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     audit: Optional[dict[str, Any]] = None
     administrative_contact: Optional[dict[str, Any]] = Field(
         None, alias="administrativeContact"
@@ -168,9 +170,6 @@ class WHOISData(BaseModel):
     contact_email: Optional[str] = Field(None, alias="contactEmail")
     registry_data: Optional[dict[str, Any]] = Field(None, alias="registryData")
     raw_text: Optional[str] = Field(None, alias="rawText")
-
-    class Config:
-        allow_population_by_field_name = True
 
 
 class WHOISRecord(HBaseRow):
