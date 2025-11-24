@@ -2,9 +2,30 @@
 
 本文件记录了 summer_modules 项目的主要变更。
 
+---
+
+## [1.1.2] - 2025-11-24
+
+### Bug Fixes - [1.1.2]
+
+- perf👌: 优化通用 httpx 重试 Client request 方法, 不再限定参数
+- perf👌: 优化 summer-modules-database 模块
+  - 升级 psql 版本
+  - 解决 hbase 解码数据异常问题
+
+---
+
+### Config update - [1.1.2]
+
+- config🔧: 添加 Github Copilot 提示配置
+- config🔧: 配置工作区忽略项目
+- config🔧: 配置 markdownlint
+
+---
+
 ## [1.1.1] - 2025-10-31
 
-### Bug Fixes
+### Bug Fixes - [1.1.1]
 
 修复 summer-modules-core 只打包了 resources 而没有源码的问题
 
@@ -35,7 +56,7 @@
 
 > 本版本为归档版本，后续将进行破坏式更新和模块拆分。
 
-### Features
+### Features - [1.0.0]
 
 - PostgreSQL 分区表管理与维护相关功能
 - 企微 BOT 消息推送功能
@@ -47,19 +68,19 @@
 - OTX API 及威胁情报相关功能
 - 通用模块：TXT/JSON/JSONL 文件读写、时间戳与时区转换、文件名排序等
 
-### Improvements
+### Improvements - [1.0.0]
 
 - 日志模块兼容性与类型提示优化
 - Hbase、PostgreSQL、Markdown、OTX 等模块性能与结构优化
 - Web请求与 User-Agent 相关工具增强
 - 测试用例与代码结构整理
 
-### Bug Fixes
+### Bug Fixes - [1.0.0]
 
 - Logger、OTX、Hbase、SSH 等模块的若干 bug
 - 依赖与类型注解问题
 
-### Others
+### Others - [1.0.0]
 
 - 移除不合理的 info_color
 - 清理冗余测试与配置文件

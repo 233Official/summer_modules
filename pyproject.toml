@@ -5,16 +5,16 @@ description = "summery233's python modules"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "summer-modules-core==1.1.1",
-    "summer-modules-ai==1.1.1",
-    "summer-modules-bot==1.1.1",
-    "summer-modules-markdown==1.1.1",
-    "summer-modules-charts==1.1.1",
-    "summer-modules-database==1.1.1",
-    "summer-modules-excel==1.1.1",
-    "summer-modules-prefect==1.1.1",
-    "summer-modules-security==1.1.1",
-    "summer-modules-ssh==1.1.1",
+    "summer-modules-core==1.1.2",
+    "summer-modules-ai==1.1.2",
+    "summer-modules-bot==1.1.2",
+    "summer-modules-markdown==1.1.2",
+    "summer-modules-charts==1.1.2",
+    "summer-modules-database==1.1.2",
+    "summer-modules-excel==1.1.2",
+    "summer-modules-prefect==1.1.2",
+    "summer-modules-security==1.1.2",
+    "summer-modules-ssh==1.1.2",
 ]
 [[project.authors]]
 name = "233"
