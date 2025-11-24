@@ -1,4 +1,4 @@
-import psycopg2
+import psycopg
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import re
@@ -28,8 +28,11 @@ def parse_partition_suffix(suffix_schema: str) -> str:
     suffix_template = re.sub(r"(\d{2})", "{month}", suffix_template)
     return suffix_template
 
+
 # 利用分区表后缀模板解析指定分区表名称提取年份与月份
-def parse_partition_table_year_month(partition_table_name: str, suffix_template: str) -> tuple[int, int]:
+def parse_partition_table_year_month(
+    partition_table_name: str, suffix_template: str
+) -> tuple[int, int]:
     """
     从分区表名称中提取年份和月份
 
@@ -41,7 +44,9 @@ def parse_partition_table_year_month(partition_table_name: str, suffix_template:
         tuple[int, int]: 提取出的年份和月份
     """
     # 生成正则表达式
-    regex_pattern = suffix_template.replace("{year}", r"(\d{4})").replace("{month}", r"(\d{2})")
+    regex_pattern = suffix_template.replace("{year}", r"(\d{4})").replace(
+        "{month}", r"(\d{2})"
+    )
     match = re.search(regex_pattern, partition_table_name)
     if match:
         year = int(match.group(1))
@@ -89,7 +94,7 @@ def create_standard_partitions(
     }
 
     try:
-        with psycopg2.connect(conn_string) as conn:
+        with psycopg.connect(conn_string) as conn:
             with conn.cursor() as cur:
                 # 查询现有分区
                 cur.execute(
@@ -100,7 +105,7 @@ def create_standard_partitions(
                     WHERE c.relkind = 'r' 
                       AND n.nspname = 'public'
                       AND c.relname LIKE '{table_name}_%'
-                """
+                """  # type: ignore
                 )
                 existing_partitions = [row[0] for row in cur.fetchall()]
 
@@ -174,16 +179,18 @@ def create_standard_partitions(
                             f"""
                             CREATE TABLE IF NOT EXISTS {partition_name} PARTITION OF {table_name}
                             FOR VALUES FROM ('{partition_start}') TO ('{partition_end}');
-                        """
+                        """ # type: ignore
                         )
 
                         # 为分区创建所需的索引
                         if index_dict:
                             index_create_sql = ""
                             for field, index_template in index_dict.items():
-                                index_name = index_template.format(partition_name=partition_name)
+                                index_name = index_template.format(
+                                    partition_name=partition_name
+                                )
                                 index_create_sql += f"CREATE INDEX IF NOT EXISTS {index_name} ON {partition_name}({field});\n"
-                            cur.execute(index_create_sql)
+                            cur.execute(index_create_sql) # type: ignore
                             # cur.execute(
                             #     f"""
                             #     CREATE INDEX IF NOT EXISTS idx_{partition_name}_indicator ON {partition_name}(indicator);
@@ -260,7 +267,7 @@ def check_and_create_future_partitions(
 
     try:
         # 连接数据库
-        with psycopg2.connect(conn_string) as conn:
+        with psycopg.connect(conn_string) as conn:
             with conn.cursor() as cur:
                 # 查询现有分区
                 cur.execute(
@@ -352,7 +359,7 @@ def check_and_create_future_partitions(
                             f"""
                             CREATE TABLE IF NOT EXISTS {partition_name} PARTITION OF {table_name}
                             FOR VALUES FROM ('{partition_start}') TO ('{partition_end}');
-                        """
+                        """ # type: ignore
                         )
 
                         # 为分区创建所需的索引
@@ -360,7 +367,7 @@ def check_and_create_future_partitions(
                             index_create_sql = ""
                             for field_name, index_name in index_dict.items():
                                 index_create_sql += f"CREATE INDEX IF NOT EXISTS {index_name} ON {partition_name}({field_name});\n"
-                            cur.execute(index_create_sql)
+                            cur.execute(index_create_sql) # type: ignore
 
                             # cur.execute(
                             #     f"""
@@ -437,7 +444,7 @@ def maintain_active_partitions(
         # 分两步处理：先获取分区信息
         active_partition_names = []
         # 连接数据库
-        with psycopg2.connect(conn_string) as conn:
+        with psycopg.connect(conn_string) as conn:
             with conn.cursor() as cur:
                 # 查询现有分区
                 cur.execute(
@@ -450,7 +457,7 @@ def maintain_active_partitions(
                       AND n.nspname = 'public'
                       AND c.relname LIKE '{table_name}_%'
                     ORDER BY relname DESC
-                """
+                """ # type: ignore
                 )
                 all_partitions = cur.fetchall()
 
@@ -468,7 +475,9 @@ def maintain_active_partitions(
                     while month <= 0:
                         month += 12
                         year -= 1
-                    partition_name_suffix = template.format(year=year, month=f"{month:02d}")
+                    partition_name_suffix = template.format(
+                        year=year, month=f"{month:02d}"
+                    )
                     active_partition_prefixes.append(
                         f"{table_name}_{partition_name_suffix}"
                     )
@@ -498,7 +507,7 @@ def maintain_active_partitions(
         vacuum_cur = None
         try:
             # 创建连接并设置autocommit
-            vacuum_conn = psycopg2.connect(conn_string)
+            vacuum_conn = psycopg.connect(conn_string)
             vacuum_conn.autocommit = True  # 在事务外执行命令
             vacuum_cur = vacuum_conn.cursor()
 
@@ -512,7 +521,7 @@ def maintain_active_partitions(
 
                 try:
                     # 执行VACUUM ANALYZE
-                    vacuum_cur.execute(f"VACUUM ANALYZE {partition_name};")
+                    vacuum_cur.execute(f"VACUUM ANALYZE {partition_name};")  # type: ignore
                     stats["vacuum_results"][partition_name] = "成功"
 
                     # 检查索引碎片并根据需要重建
@@ -522,7 +531,7 @@ def maintain_active_partitions(
                                idx_scan, idx_tup_read, idx_tup_fetch
                         FROM pg_stat_user_indexes
                         WHERE relname = '{partition_name}'
-                    """
+                    """  # type: ignore
                     )
                     indexes = vacuum_cur.fetchall()
 
@@ -534,7 +543,7 @@ def maintain_active_partitions(
 
                         # 如果索引有大量扫描，考虑重建
                         if idx_scan > 100:  # 可调整的阈值
-                            vacuum_cur.execute(f"REINDEX INDEX {index_name};")
+                            vacuum_cur.execute(f"REINDEX INDEX {index_name};")  # type: ignore
                             reindex_results.append(f"{index_name} (大小: {index_size})")
 
                     if reindex_results:
@@ -595,8 +604,7 @@ def calculate_partition_time_range(
     dates = []
     for partition in all_partitions:
         year, month = parse_partition_table_year_month(
-            partition_table_name=partition,
-            suffix_template=template
+            partition_table_name=partition, suffix_template=template
         )
 
         # 创建日期对象
@@ -659,7 +667,10 @@ def create_partition_management_report(
     if standard_partition_stats:
         # 从分区名称计算时间范围
         time_range = calculate_partition_time_range(
-            standard_partition_stats, table_name=table_name, suffix_schema=suffix_schema, custom_logger=custom_logger
+            standard_partition_stats,
+            table_name=table_name,
+            suffix_schema=suffix_schema,
+            custom_logger=custom_logger,
         )
         earliest = time_range.get("earliest", "未知")
         latest = time_range.get("latest", "未知")

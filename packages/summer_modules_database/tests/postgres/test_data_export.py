@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-import psycopg2
+import psycopg
 
 from summer_modules_database.postgres.data_export import PostgresExporter
 
@@ -13,6 +13,7 @@ class DummyCursor:
             {"id": 2, "name": "Bob"},
         ]
         self.executed = []
+        self.closed = False
 
     def execute(self, query, params=None):
         self.executed.append((query, params))
@@ -22,6 +23,13 @@ class DummyCursor:
 
     def __iter__(self):
         return iter(self.dataset)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.closed = True
+        return False
 
 
 class DummyConnection:
@@ -35,9 +43,16 @@ class DummyConnection:
     def close(self):
         self.closed = True
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
 
 def test_export_to_jsonl(monkeypatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(psycopg2, "connect", lambda **_: DummyConnection())
+    monkeypatch.setattr(psycopg, "connect", lambda **_: DummyConnection())
 
     exporter = PostgresExporter(
         db_name="db",

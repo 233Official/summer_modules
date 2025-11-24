@@ -4,7 +4,6 @@ dynamic = ["version"]
 description = "Database helpers for summer-modules"
 requires-python = ">=3.11"
 dependencies = [
-    "psycopg2-binary>=2.9.10",
     "paramiko>=3.5.1",
     "thrift>=0.22.0",
     "httpx>=0.28.1",
@@ -12,11 +11,16 @@ dependencies = [
     "summer-modules-core>=1.1.1",
     "summer-modules-markdown>=1.1.1",
     "summer-modules-ssh>=1.1.1",
+    "psycopg[binary]>=3.2.13",
+    "matplotlib>=3.10.7",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["pytest>=8.4.2", "toml>=0.10.2"]
 
 [tool.hatch.version]
 path = "../../VERSION"

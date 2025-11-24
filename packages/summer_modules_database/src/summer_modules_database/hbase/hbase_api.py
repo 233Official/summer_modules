@@ -94,6 +94,30 @@ class HBaseAPI:
 
         HBASE_LOGGER.info(f"HBase API 初始化完成，连接到 {host}:{thrift_port}")
 
+    @staticmethod
+    def _decode_cell_value(cell_value: bytes) -> Any:
+        """
+        尝试解码 HBase 单元格内容:
+        1) 优先按 UTF-8 解码，并尝试 JSON 解析
+        2) UTF-8 失败则尝试 zlib 解压后再解码/解析
+        3) 全部失败则返回原始字节
+        """
+        try:
+            value_str = cell_value.decode()
+            try:
+                return json.loads(value_str)
+            except json.JSONDecodeError:
+                return value_str
+        except UnicodeDecodeError:
+            try:
+                decompressed = zlib.decompress(cell_value)
+                try:
+                    return json.loads(decompressed.decode())
+                except json.JSONDecodeError:
+                    return decompressed.decode()
+            except Exception:
+                return cell_value
+
     @property
     def _client(self) -> "Hbase.Client":
         """获取 HBase 客户端，确保非空"""
@@ -367,19 +391,7 @@ class HBaseAPI:
 
                     for column, cell in row.columns.items():
                         cf, qualifier = column.decode().split(":", 1)
-                        value = cell.value.decode()
-
-                        try:
-                            # 尝试解析 JSON
-                            value = json.loads(value)
-                        except (json.JSONDecodeError, UnicodeDecodeError):
-                            try:
-                                # 尝试解压
-                                decompressed = zlib.decompress(cell.value)
-                                value = json.loads(decompressed.decode())
-                            except:
-                                # 保持原始值
-                                pass
+                        value = self._decode_cell_value(cell.value)
 
                         if cf not in row_data:
                             row_data[cf] = {}
@@ -520,19 +532,7 @@ class HBaseAPI:
 
                     for column, cell in row.columns.items():
                         cf, qualifier = column.decode().split(":", 1)
-                        value = cell.value.decode()
-
-                        try:
-                            # 尝试解析 JSON
-                            value = json.loads(value)
-                        except (json.JSONDecodeError, UnicodeDecodeError):
-                            try:
-                                # 尝试解压
-                                decompressed = zlib.decompress(cell.value)
-                                value = json.loads(decompressed.decode())
-                            except:
-                                # 保持原始值
-                                pass
+                        value = self._decode_cell_value(cell.value)
 
                         if cf not in row_data:
                             row_data[cf] = {}
@@ -594,19 +594,7 @@ class HBaseAPI:
 
                     for column, cell in row.columns.items():
                         cf, qualifier = column.decode().split(":", 1)
-                        value = cell.value.decode()
-
-                        try:
-                            # 尝试解析 JSON
-                            value = json.loads(value)
-                        except (json.JSONDecodeError, UnicodeDecodeError):
-                            try:
-                                # 尝试解压
-                                decompressed = zlib.decompress(cell.value)
-                                value = json.loads(decompressed.decode())
-                            except:
-                                # 保持原始值
-                                pass
+                        value = self._decode_cell_value(cell.value)
 
                         if cf not in row_data:
                             row_data[cf] = {}
@@ -672,19 +660,7 @@ class HBaseAPI:
 
             for column, cell in row.columns.items():
                 cf, qualifier = column.decode().split(":", 1)
-                value = cell.value.decode()
-
-                try:
-                    # 尝试解析 JSON
-                    value = json.loads(value)
-                except (json.JSONDecodeError, UnicodeDecodeError):
-                    try:
-                        # 尝试解压
-                        decompressed = zlib.decompress(cell.value)
-                        value = json.loads(decompressed.decode())
-                    except:
-                        # 保持原始值
-                        pass
+                value = self._decode_cell_value(cell.value)
 
                 if cf not in row_data:
                     row_data[cf] = {}
@@ -752,19 +728,7 @@ class HBaseAPI:
 
                     for column, cell in row.columns.items():
                         cf, qualifier = column.decode().split(":", 1)
-                        value = cell.value.decode()
-
-                        try:
-                            # 尝试解析 JSON
-                            value = json.loads(value)
-                        except (json.JSONDecodeError, UnicodeDecodeError):
-                            try:
-                                # 尝试解压
-                                decompressed = zlib.decompress(cell.value)
-                                value = json.loads(decompressed.decode())
-                            except:
-                                # 保持原始值
-                                pass
+                        value = self._decode_cell_value(cell.value)
 
                         if cf not in row_data:
                             row_data[cf] = {}

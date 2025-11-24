@@ -6,8 +6,8 @@ import json
 import os
 from pathlib import Path
 
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import psycopg
+from psycopg.rows import dict_row
 
 from . import POSTGRES_LOGGER
 
@@ -35,58 +35,52 @@ class PostgresExporter:
         os.makedirs(output_dir, exist_ok=True)
 
         try:
-            # 连接数据库
-            conn = psycopg2.connect(
+            # 连接数据库并使用字典行工厂以便直接得到可序列化的 dict
+            with psycopg.connect(
                 host=self.host,
                 port=self.port,
                 user=self.user,
                 password=self.password,
-                database=self.db_name,
-            )
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
+                dbname=self.db_name,
+            ) as conn:
+                with conn.cursor(row_factory=dict_row) as cursor:
+                    # 获取总记录数
+                    cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                    result = cursor.fetchone()
+                    total_records = result["count"] if result else 0
+                    print(f"总记录数: {total_records}")
 
-            if not cursor:
-                POSTGRES_LOGGER.error("无法创建数据库游标")
-                return
+                    # 分批参数
+                    total_batches = (total_records + batch_size - 1) // batch_size
 
-            # 获取总记录数
-            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
-            result = cursor.fetchone()
-            total_records = result["count"] if result else 0
-            print(f"总记录数: {total_records}")
+                    for batch_num in range(1, total_batches + 1):
+                        offset = (batch_num - 1) * batch_size
 
-            # 分批参数
-            total_batches = (total_records + batch_size - 1) // batch_size
+                        # 查询当前批次数据
+                        cursor.execute(
+                            f"""SELECT * FROM {table_name} 
+                               ORDER BY id 
+                               LIMIT %s OFFSET %s""",
+                            (batch_size, offset),
+                        )
 
-            for batch_num in range(1, total_batches + 1):
-                offset = (batch_num - 1) * batch_size
+                        # 准备输出文件
+                        output_file = output_dir / f"{table_name}_batch{batch_num}.jsonl"
 
-                # 查询当前批次数据
-                cursor.execute(
-                    f"""SELECT * FROM {table_name} 
-                       ORDER BY id 
-                       LIMIT %s OFFSET %s""",
-                    (batch_size, offset),
-                )
+                        # 写入JSONL文件
+                        with open(output_file, "w") as f:
+                            for record in cursor:
+                                # 处理日期时间类型，确保可以序列化为JSON
+                                record_dict = dict(record)
+                                for key, value in record_dict.items():
+                                    if hasattr(value, "isoformat"):  # 对日期时间类型进行转换
+                                        record_dict[key] = value.isoformat()
 
-                # 准备输出文件
-                output_file = output_dir / f"{table_name}_batch{batch_num}.jsonl"
+                                # 写入一行JSON
+                                f.write(json.dumps(record_dict) + "\n")
 
-                # 写入JSONL文件
-                with open(output_file, "w") as f:
-                    for record in cursor:
-                        # 处理日期时间类型，确保可以序列化为JSON
-                        record_dict = dict(record)
-                        for key, value in record_dict.items():
-                            if hasattr(value, "isoformat"):  # 对日期时间类型进行转换
-                                record_dict[key] = value.isoformat()
+                        print(f"已导出批次 {batch_num}/{total_batches} 到文件: {output_file}")
 
-                        # 写入一行JSON
-                        f.write(json.dumps(record_dict) + "\n")
-
-                print(f"已导出批次 {batch_num}/{total_batches} 到文件: {output_file}")
-
-            conn.close()
             print("数据导出完成")
 
         except Exception as e:
